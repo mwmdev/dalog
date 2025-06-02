@@ -1,0 +1,13 @@
+# Changelog
+
+## [0.1.0] - 2025-06-02
+
+### Added
+- Initial release of `dalog` - Your friendly terminal logs viewer
+- Real-time log file monitoring and tailing
+- Live search functionality 
+- Syntax highlighting for different log levels
+- Configurable themes and styles
+- Copy to clipboard functionality
+- Configuration via TOML files
+- Command-line interface with Click
