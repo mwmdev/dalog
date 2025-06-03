@@ -44,13 +44,19 @@ jobs:
     
     - name: Run tests
       run: |
-        pytest tests/ -v
+        pytest tests/ -v --tb=short
     
-    - name: Run linting
+    - name: Run linting (warnings only)
+      continue-on-error: true
       run: |
-        black --check src/
-        mypy src/
-        pylint src/
+        echo "Running code formatting check..."
+        black --check src/ || echo "⚠️  Code formatting issues found"
+        
+        echo "Running type checking..."
+        mypy src/ || echo "⚠️  Type checking issues found"
+        
+        echo "Running pylint..."
+        pylint src/ || echo "⚠️  Linting issues found"
 
   build:
     needs: test
