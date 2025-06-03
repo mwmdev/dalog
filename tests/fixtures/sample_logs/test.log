@@ -1,0 +1,16 @@
+2024-01-15 10:30:00 INFO Starting application server
+2024-01-15 10:30:01 DEBUG Loading configuration from /etc/app/config.yml
+2024-01-15 10:30:02 INFO Server listening on port 8080
+2024-01-15 10:30:05 WARNING High memory usage detected: 85%
+2024-01-15 10:30:10 ERROR Failed to connect to database: Connection timeout
+2024-01-15 10:30:11 INFO Retrying database connection...
+2024-01-15 10:30:12 SUCCESS Database connection established
+2024-01-15 10:30:15 DEBUG Processing request from 192.168.1.100
+2024-01-15 10:30:16 INFO User authentication successful for user: john.doe
+2024-01-15 10:30:20 NOTICE Performance metrics: avg_response_time=150ms
+2024-01-15 10:30:25 ERROR EXCEPTION in thread "main" java.lang.NullPointerException at line 42
+2024-01-15 10:30:26 FAILURE Critical system failure detected
+2024-01-15 10:30:30 INFO System recovery initiated
+[15-Jan-2024 10:30:35 UTC] PHP Notice: Undefined variable in /var/www/script.php on line 15
+2024-01-15T10:30:40.123Z TRACE Function main() called with parameters: {id: 123, name: "test"}
+2024-01-15 10:31:00 INFO Regular heartbeat check - all systems operational 
