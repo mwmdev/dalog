@@ -3,14 +3,14 @@ Default configuration for DaLog.
 """
 
 from .models import (
-    DaLogConfig,
     AppConfig,
-    KeyBindings,
+    DaLogConfig,
     DisplayConfig,
-    StylingConfig,
-    HtmlConfig,
     ExclusionConfig,
+    HtmlConfig,
+    KeyBindings,
     StylePattern,
+    StylingConfig,
 )
 
 
@@ -21,7 +21,7 @@ def get_default_config() -> DaLogConfig:
             default_tail_lines=1000,
             live_reload=True,
             case_sensitive_search=False,
-            vim_mode=True
+            vim_mode=True,
         ),
         keybindings=KeyBindings(
             search="/",
@@ -35,13 +35,13 @@ def get_default_config() -> DaLogConfig:
             scroll_left="h",
             scroll_right="l",
             scroll_home="g",
-            scroll_end="G"
+            scroll_end="G",
         ),
         display=DisplayConfig(
             show_line_numbers=True,
             wrap_lines=False,
             max_line_length=1000,
-            visual_mode_bg="white"
+            visual_mode_bg="white",
         ),
         styling=StylingConfig(
             patterns={
@@ -49,167 +49,156 @@ def get_default_config() -> DaLogConfig:
                     pattern=r"\b(ERROR|FAIL|FAILED|FAILURE|EXCEPTION)\b",
                     color="white",
                     background="red",
-                    bold=True
+                    bold=True,
                 ),
                 "warning": StylePattern(
                     pattern=r"\b(WARN|WARNING)\b",
                     color="black",
                     background="yellow",
-                    bold=True
+                    bold=True,
                 ),
                 "notice": StylePattern(
                     pattern=r"\b(NOTICE|PHP Notice)\b",
                     color="black",
                     background="white",
-                    bold=True
+                    bold=True,
                 ),
                 "info": StylePattern(
                     pattern=r"\b(INFO|INFORMATION)\b",
                     color="white",
                     background="blue",
-                    bold=True
+                    bold=True,
                 ),
                 "debug": StylePattern(
                     pattern=r"\b(DEBUG|TRACE)\b",
                     color="white",
                     background="bright_black",
-                    bold=True
+                    bold=True,
                 ),
                 "success": StylePattern(
                     pattern=r"\b(SUCCESS|OK|PASSED|COMPLETE)\b",
                     color="white",
                     background="green",
-                    bold=True
+                    bold=True,
                 ),
                 "function_name": StylePattern(
                     pattern=r"\b(Function|function|func|Func|method|Method|def|Def)\s+(\w+)",
                     color="bright_yellow",
-                    bold=True
+                    bold=True,
                 ),
                 "class_name": StylePattern(
                     pattern=r"\b(Class|class|Type|type|interface|Interface)\s+(\w+)",
                     color="bright_green",
-                    bold=True
+                    bold=True,
                 ),
                 "file_path": StylePattern(
                     pattern=r"\b(?:in|at|from|file|File)\s+([\/\w\-\.]+\.\w+)",
                     color="cyan",
-                    underline=True
+                    underline=True,
                 ),
                 "line_number": StylePattern(
-                    pattern=r"\b(?:line|Line|L)\s+(\d+)",
-                    color="bright_magenta"
+                    pattern=r"\b(?:line|Line|L)\s+(\d+)", color="bright_magenta"
                 ),
                 "variable_name": StylePattern(
                     pattern=r"\b(?:variable|Variable|var|Var|param|Param|argument|Argument)\s+(\w+)",
-                    color="bright_blue"
+                    color="bright_blue",
                 ),
                 "module_name": StylePattern(
                     pattern=r"\b(?:module|Module|package|Package|namespace|Namespace)\s+(\w+)",
-                    color="bright_cyan"
+                    color="bright_cyan",
                 ),
                 "error_code": StylePattern(
                     pattern=r"\b(?:error|Error|code|Code)\s+(E\d+|\w+_ERROR|\w+_ERR)",
                     color="bright_red",
-                    bold=True
-                )
+                    bold=True,
+                ),
             },
             timestamps={
                 "iso_datetime": StylePattern(
                     pattern=r"\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:,\d{3})?",
                     color="black",
                     background="bright_black",
-                    bold=True
+                    bold=True,
                 ),
                 "standard_date": StylePattern(
                     pattern=r"\d{4}-\d{2}-\d{2}",
                     color="black",
-                    background="bright_black"
+                    background="bright_black",
                 ),
                 "time_only": StylePattern(
                     pattern=r"\b\d{2}:\d{2}:\d{2}(?:[,\.]\d{3})?\b",
                     color="black",
-                    background="bright_black"
+                    background="bright_black",
                 ),
                 "log_timestamp": StylePattern(
-                    pattern=r"^\[[\d\s:-]+\]",
-                    color="black",
-                    background="bright_black"
+                    pattern=r"^\[[\d\s:-]+\]", color="black", background="bright_black"
                 ),
                 "iso_datetime_dot": StylePattern(
                     pattern=r"\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}\.\d{3}",
                     color="black",
                     background="bright_black",
-                    bold=True
+                    bold=True,
                 ),
                 "bracketed_datetime": StylePattern(
                     pattern=r"\[\d{1,2}-[A-Za-z]{3}-\d{4} \d{2}:\d{2}:\d{2} [A-Z]{3,4}\]",
                     color="black",
                     background="bright_black",
-                    bold=True
-                )
+                    bold=True,
+                ),
             },
             custom={
                 "ip_address": StylePattern(
-                    pattern=r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b",
-                    color="magenta"
+                    pattern=r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b", color="magenta"
                 ),
                 "url": StylePattern(
-                    pattern=r"https?://[^\s]+",
-                    color="blue",
-                    underline=True
+                    pattern=r"https?://[^\s]+", color="blue", underline=True
                 ),
                 "email": StylePattern(
                     pattern=r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b",
-                    color="cyan"
+                    color="cyan",
                 ),
                 "uuid": StylePattern(
                     pattern=r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b",
-                    color="yellow"
+                    color="yellow",
                 ),
                 "function_name": StylePattern(
                     pattern=r"\b(Function|function|func|Func|method|Method|def|Def)\s+(\w+)",
                     color="bright_yellow",
-                    bold=True
+                    bold=True,
                 ),
                 "class_name": StylePattern(
                     pattern=r"\b(Class|class|Type|type|interface|Interface)\s+(\w+)",
                     color="bright_green",
-                    bold=True
+                    bold=True,
                 ),
                 "file_path": StylePattern(
                     pattern=r"\b(?:in|at|from|file|File)\s+([\/\w\-\.]+\.\w+)",
                     color="cyan",
-                    underline=True
+                    underline=True,
                 ),
                 "line_number": StylePattern(
-                    pattern=r"\b(?:line|Line|L)\s+(\d+)",
-                    color="bright_magenta"
+                    pattern=r"\b(?:line|Line|L)\s+(\d+)", color="bright_magenta"
                 ),
                 "variable_name": StylePattern(
                     pattern=r"\b(?:variable|Variable|var|Var|param|Param|argument|Argument)\s+(\w+)",
-                    color="bright_blue"
+                    color="bright_blue",
                 ),
                 "module_name": StylePattern(
                     pattern=r"\b(?:module|Module|package|Package|namespace|Namespace)\s+(\w+)",
-                    color="bright_cyan"
+                    color="bright_cyan",
                 ),
                 "error_code": StylePattern(
                     pattern=r"\b(?:error|Error|code|Code)\s+(E\d+|\w+_ERROR|\w+_ERR)",
                     color="bright_red",
-                    bold=True
-                )
-            }
+                    bold=True,
+                ),
+            },
         ),
         html=HtmlConfig(
             enabled_tags=["b", "i", "em", "strong", "span", "code", "a"],
-            strip_unknown_tags=True
+            strip_unknown_tags=True,
         ),
-        exclusions=ExclusionConfig(
-            patterns=[],
-            regex=True,
-            case_sensitive=False
-        )
+        exclusions=ExclusionConfig(patterns=[], regex=True, case_sensitive=False),
     )
 
 
@@ -376,4 +365,4 @@ strip_unknown_tags = true
 patterns = []
 regex = true
 case_sensitive = false
-""" 
+"""

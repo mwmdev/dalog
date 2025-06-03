@@ -2,18 +2,18 @@
 Configuration module for DaLog.
 """
 
-from .models import (
-    DaLogConfig,
-    AppConfig,
-    KeyBindings,
-    DisplayConfig,
-    StylingConfig,
-    HtmlConfig,
-    ExclusionConfig,
-    StylePattern,
-)
+from .defaults import DEFAULT_CONFIG_TOML, get_default_config
 from .loader import ConfigLoader
-from .defaults import get_default_config, DEFAULT_CONFIG_TOML
+from .models import (
+    AppConfig,
+    DaLogConfig,
+    DisplayConfig,
+    ExclusionConfig,
+    HtmlConfig,
+    KeyBindings,
+    StylePattern,
+    StylingConfig,
+)
 
 __all__ = [
     "DaLogConfig",

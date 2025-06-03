@@ -68,22 +68,22 @@ def main(
 ) -> None:
     """
     dalog - Your friendly terminal logs viewer
-    
+
     View and search a log file with a modern terminal interface.
-    
+
     Examples:
-    
+
         dalog app.log
-        
+
         dalog --search ERROR app.log
-        
+
         dalog --tail 1000 large-app.log
-        
+
         dalog --config ~/.config/dalog/custom.toml app.log
     """
     # Convert path to string
     log_file_path = str(Path(log_file).resolve())
-    
+
     # Create and run the application
     try:
         app = DaLogApp(
@@ -93,10 +93,10 @@ def main(
             tail_lines=tail,
             theme=theme,
         )
-        
+
         # Run the app
         app.run()
-        
+
     except KeyboardInterrupt:
         # Clean exit on Ctrl+C
         pass
@@ -106,4 +106,4 @@ def main(
 
 
 if __name__ == "__main__":
-    main() 
+    main()

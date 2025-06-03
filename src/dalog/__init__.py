@@ -6,6 +6,7 @@ A high-performance, terminal-based log viewing application built with Python and
 
 try:
     from importlib.metadata import version
+
     __version__ = version("dalog")
 except Exception:
     # Fallback for development/editable installs
