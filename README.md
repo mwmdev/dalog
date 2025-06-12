@@ -58,9 +58,6 @@ pip install -e .
 # View a single log file
 dalog application.log
 
-# View multiple log files (opens the first file)
-dalog app.log error.log debug.log
-
 # Start with search pre-filled
 dalog --search ERROR application.log
 
@@ -71,9 +68,7 @@ dalog --tail 1000 large-application.log
 dalog --config ~/.config/dalog/custom.toml app.log
 
 # Use a specific Textual theme
-dalog --theme nord app.log
 dalog --theme gruvbox error.log
-dalog --theme tokyo-night system.log
 ```
 
 ### Default Keybindings
