@@ -6,6 +6,8 @@
 
 `dalog` is a terminal-based log viewing application built with Python and Textual. It provides advanced features for viewing, searching, and analyzing log files with a modern, keyboard-driven interface optimized for developer workflows.
 
+![dalog](./public/dalog.png)
+
 ## Features
 
 - **Live Search**: Real-time filtering 
