@@ -135,7 +135,7 @@ dalog --theme gruvbox error.log
 
 DaLog supports vi-style visual line selection:
 
-1. Press `V` to enter visual line mode
+1. Press `V` (or enter a line number and press `V`) to enter visual line mode
 2. Use `j`/`k` to navigate to the desired starting line (cursor shown with underline)
 3. Press `v` to start selection from the current cursor position
 4. Use `j`/`k` to extend the selection up/down
