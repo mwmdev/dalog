@@ -37,8 +37,8 @@ class DaLogApp(App):
         Binding("l", "scroll_right", "Right", show=False),
         Binding("g", "scroll_home", "Top", show=False),
         Binding("G", "scroll_end", "Bottom", show=False),
-        # Visual mode
-        Binding("V", "toggle_visual_mode", "Visual Mode"),
+        # Visual mode - V handled in on_key for line number input
+        Binding("?", "show_help", "Help"),
         Binding("v", "start_selection", "Start Selection", show=False),
         Binding("y", "yank_lines", "Yank", show=False),
         # Page scrolling
@@ -51,6 +51,10 @@ class DaLogApp(App):
     live_reload = reactive(True)
     current_search = reactive("")
     current_file = reactive("")
+    
+    # Line number input state (vim-style)
+    line_number_input = reactive("")
+    line_number_mode = reactive(False)
 
     def __init__(
         self,
@@ -345,11 +349,52 @@ class DaLogApp(App):
             self.log_viewer.exit_visual_mode()
             self.notify("Exited visual mode", timeout=2)
         else:
-            self.log_viewer.enter_visual_mode()
-            self.notify(
-                "Visual mode: j/k to navigate, v to start selection, y to copy",
-                timeout=3,
-            )
+            # Check if we have a line number input
+            if self.line_number_input:
+                try:
+                    target_line = int(self.line_number_input)
+                    success, message = self.log_viewer.enter_visual_mode(target_line_number=target_line)
+                    
+                    if success:
+                        self.notify(f"{message}: j/k to navigate, v to start selection, y to copy", timeout=3)
+                    else:
+                        # Check if line exists but is filtered
+                        if "hidden by current filters" in message:
+                            # Try to automatically show the line by clearing filters
+                            if self.log_viewer.temporarily_show_line(target_line):
+                                # Now try visual mode again
+                                success, new_message = self.log_viewer.enter_visual_mode(target_line_number=target_line)
+                                if success:
+                                    self.notify(
+                                        f"Cleared filters to show {new_message}: j/k to navigate, v to start selection, y to copy",
+                                        timeout=5
+                                    )
+                                else:
+                                    self.notify(f"Failed to enter visual mode: {new_message}", severity="error", timeout=3)
+                            else:
+                                self.notify(
+                                    f"{message}. Press 'e' to manage exclusions or clear search with Esc",
+                                    severity="warning",
+                                    timeout=5
+                                )
+                        else:
+                            self.notify(message, severity="error", timeout=3)
+                        
+                except ValueError:
+                    self.notify("Invalid line number", severity="error", timeout=2)
+                
+                # Clear line number input after use
+                self.line_number_input = ""
+                self.line_number_mode = False
+            else:
+                # No line number specified, start visual mode at current viewport center
+                center_line = self.log_viewer.get_current_viewport_line()
+                success, message = self.log_viewer.enter_visual_mode(line_index=center_line)
+                
+                if success:
+                    self.notify(f"{message}: j/k to navigate, v to start selection, y to copy", timeout=3)
+                else:
+                    self.notify(message, severity="error", timeout=2)
 
     async def action_start_selection(self) -> None:
         """Start selection in visual mode."""
@@ -394,14 +439,45 @@ class DaLogApp(App):
 
     async def on_key(self, event) -> None:
         """Handle key events."""
-        if event.key == "escape":
-            if self.search_mode:
+        # Don't intercept keys if search mode is active (let search input handle them)
+        if self.search_mode:
+            if event.key == "escape":
                 # Cancel search
                 await self.action_toggle_search()
-            elif self.log_viewer.visual_mode:
+            return
+        
+        if event.key == "escape":
+            if self.log_viewer.visual_mode:
                 # Exit visual mode
                 self.log_viewer.exit_visual_mode()
                 self.notify("Exited visual mode", timeout=2)
+            elif self.line_number_mode:
+                # Cancel line number input
+                self._clear_line_number_input()
+        
+        # Handle line number input (digits 0-9)
+        elif event.key.isdigit():
+            self.line_number_input += event.key
+            self.line_number_mode = True
+            # Show current input in status
+            # self.notify(f"Line: {self.line_number_input}_", timeout=1)
+            
+        # Handle 'V' key (either standalone or after line number)
+        elif event.key == "V":  # Capital V only
+            await self.action_toggle_visual_mode()
+            
+        # Handle '?' key for help
+        elif event.key == "?":
+            await self.action_show_help()
+            
+        # Clear line number input on any other key
+        elif self.line_number_mode:
+            self._clear_line_number_input()
+
+    def _clear_line_number_input(self) -> None:
+        """Clear line number input state."""
+        self.line_number_input = ""
+        self.line_number_mode = False
 
     def _apply_cli_exclusions(self) -> None:
         """Apply CLI exclusion patterns to the log viewer."""
@@ -428,3 +504,34 @@ class DaLogApp(App):
                 f"Applied {added_count} CLI exclusion pattern(s)",
                 timeout=3,
             )
+
+    async def action_show_help(self) -> None:
+        """Show help information."""
+        help_text = """
+DaLog Help:
+
+Navigation:
+  j/k         - Scroll up/down
+  h/l         - Scroll left/right  
+  g/G         - Go to top/bottom
+  Ctrl+u/d    - Page up/down
+
+Visual Mode:
+  V           - Enter visual mode at current line
+  123V        - Enter visual mode at line 123
+                (automatically clears filters if line is hidden)
+  v           - Start selection (in visual mode)
+  y           - Copy selected lines (in visual mode)
+  j/k         - Move cursor (in visual mode)
+  Esc         - Exit visual mode
+
+Other:
+  /           - Search
+  r           - Reload file
+  L           - Toggle live reload
+  e           - Manage exclusions
+  w           - Toggle line wrapping
+  ?           - Show this help
+  q           - Quit
+        """
+        self.notify(help_text, timeout=12)

@@ -62,7 +62,7 @@ class LogViewerWidget(RichLog):
             highlight=True,
             markup=True,
             wrap=config.display.wrap_lines,
-            auto_scroll=True,
+            auto_scroll=False,  # Disable auto-scroll to prevent unwanted scrolling
             **kwargs,
         )
         self.config = config
@@ -83,11 +83,18 @@ class LogViewerWidget(RichLog):
             case_sensitive=config.exclusions.case_sensitive,
         )
 
-    def load_from_processor(self, processor: LogProcessor) -> None:
+    def scroll_to_end(self) -> None:
+        """Manually scroll to the end of the content."""
+        if self.displayed_lines:
+            max_scroll = max(0, len(self.displayed_lines) - self.size.height)
+            self.scroll_to(0, max_scroll)
+
+    def load_from_processor(self, processor: LogProcessor, scroll_to_end: bool = True) -> None:
         """Load lines from a log processor.
 
         Args:
             processor: LogProcessor instance
+            scroll_to_end: Whether to scroll to end after loading (useful for tail mode)
         """
         # Clear existing content
         self.clear()
@@ -103,9 +110,16 @@ class LogViewerWidget(RichLog):
 
         # Apply initial display
         self._refresh_display()
+        
+        # Scroll to end if requested (e.g., for tail mode or initial load)
+        if scroll_to_end and not self.visual_mode:
+            self.scroll_to_end()
 
     def _refresh_display(self) -> None:
         """Refresh the display based on current filters and search."""
+        # Store current scroll position to preserve view
+        current_scroll_y = self.scroll_offset.y if hasattr(self, 'scroll_offset') else 0
+        
         self.clear()
         self.displayed_lines.clear()
 
@@ -131,6 +145,15 @@ class LogViewerWidget(RichLog):
 
         self.visible_lines = len(self.displayed_lines)
         self.filtered_lines = self.total_lines - self.visible_lines
+        
+        # Restore scroll position after refresh, but only if not in visual mode
+        # or if we're not specifically positioning for visual mode
+        if not self.visual_mode and current_scroll_y > 0:
+            # Ensure we don't scroll beyond the content
+            max_scroll = max(0, len(self.displayed_lines) - self.size.height)
+            target_scroll = min(current_scroll_y, max_scroll)
+            if target_scroll >= 0:
+                self.scroll_to(0, target_scroll)
 
     def _matches_search(self, line: LogLine) -> bool:
         """Check if a line matches the current search term.
@@ -307,15 +330,59 @@ class LogViewerWidget(RichLog):
 
         return middle_line
 
-    def enter_visual_mode(self, line_index: Optional[int] = None) -> None:
+    def line_exists_in_file(self, target_line_number: int) -> bool:
+        """Check if a line number exists in the original file (before filtering).
+        
+        Args:
+            target_line_number: The actual line number from the file
+            
+        Returns:
+            True if the line exists in the original file
+        """
+        for line in self.all_lines:
+            if line.line_number == target_line_number:
+                return True
+        return False
+
+    def find_display_index_for_line_number(self, target_line_number: int) -> Optional[int]:
+        """Find the display index for a given actual line number.
+        
+        Args:
+            target_line_number: The actual line number from the file
+            
+        Returns:
+            Index in displayed_lines, or None if line is not visible
+        """
+        for i, line_number in enumerate(self.displayed_lines):
+            if line_number == target_line_number:
+                return i
+        return None
+
+    def enter_visual_mode(self, line_index: Optional[int] = None, target_line_number: Optional[int] = None) -> Tuple[bool, str]:
         """Enter visual line mode.
 
         Args:
-            line_index: Optional starting line index (0-based). If None, uses current viewport position.
+            line_index: Optional starting line index (0-based in displayed_lines). If None, uses current viewport position.
+            target_line_number: Optional actual line number from file. Takes precedence over line_index.
+            
+        Returns:
+            Tuple of (success, message) indicating result
         """
         if not self.displayed_lines:
-            return
+            return False, "No lines to display"
 
+        # If target_line_number is specified, check if it exists and is visible
+        if target_line_number is not None:
+            # First check if the line exists in the original file
+            if not self.line_exists_in_file(target_line_number):
+                return False, f"Line {target_line_number} does not exist in file (max: {len(self.all_lines)})"
+            
+            # Check if it's visible in current filtered view
+            line_index = self.find_display_index_for_line_number(target_line_number)
+            if line_index is None:
+                # Line exists but is filtered out
+                return False, f"Line {target_line_number} is hidden by current filters/exclusions"
+        
         # Use current viewport position if not specified
         if line_index is None:
             line_index = self.get_current_viewport_line()
@@ -327,10 +394,16 @@ class LogViewerWidget(RichLog):
             self.visual_start_line = -1
             self.visual_end_line = -1
 
-            # Ensure the cursor line is visible
+            # First ensure the cursor line is visible before refreshing display
             self._ensure_line_visible(line_index)
-
+            
+            # Now refresh the display to show visual mode highlighting
             self._refresh_display()
+            
+            actual_line_num = self.displayed_lines[line_index]
+            return True, f"Visual mode at line {actual_line_num}"
+        
+        return False, "Invalid line index"
 
     def exit_visual_mode(self) -> None:
         """Exit visual line mode."""
@@ -373,21 +446,26 @@ class LogViewerWidget(RichLog):
             return
 
         # Get current scroll position and viewport height
-        scroll_y = self.scroll_offset.y
+        scroll_y = self.scroll_offset.y if hasattr(self, 'scroll_offset') else 0
         visible_height = self.size.height
 
-        # Calculate the visible range
-        visible_start = scroll_y
-        visible_end = scroll_y + visible_height - 1
+        # Calculate the visible range with some padding
+        padding = 2  # Lines of padding from edges
+        visible_start = scroll_y + padding
+        visible_end = scroll_y + visible_height - padding - 1
 
-        # If line is above visible area, scroll up
+        # Only scroll if the line is actually outside the comfortable viewing area
         if line_index < visible_start:
-            self.scroll_to(0, line_index)
-        # If line is below visible area, scroll down
+            # Line is above visible area - scroll up to center it
+            new_scroll_y = max(0, line_index - (visible_height // 2))
+            self.scroll_to(0, new_scroll_y)
         elif line_index > visible_end:
-            # Scroll so the line is at the bottom of the viewport
-            new_scroll_y = line_index - visible_height + 1
-            self.scroll_to(0, max(0, new_scroll_y))
+            # Line is below visible area - scroll down to center it  
+            new_scroll_y = max(0, line_index - (visible_height // 2))
+            max_scroll = max(0, len(self.displayed_lines) - visible_height)
+            new_scroll_y = min(new_scroll_y, max_scroll)
+            self.scroll_to(0, new_scroll_y)
+        # If line is already comfortably visible, don't scroll at all
 
     def start_visual_selection(self) -> None:
         """Start selection from current cursor position."""
@@ -449,3 +527,55 @@ class LogViewerWidget(RichLog):
                 self.app.notify(f"Failed to copy to clipboard: {e}", severity="error")
                 return False
         return False
+
+    def temporarily_show_line(self, target_line_number: int) -> bool:
+        """Temporarily clear filters and search to show a specific line.
+        
+        Args:
+            target_line_number: The line number to make visible
+            
+        Returns:
+            True if line was made visible
+        """
+        # Check if line exists in file
+        if not self.line_exists_in_file(target_line_number):
+            return False
+            
+        # Store current state
+        original_search_term = self.search_term
+        original_search_active = self.search_active
+        
+        # Clear search temporarily
+        self.search_term = ""
+        self.search_active = False
+        
+        # Store original exclusion patterns
+        original_patterns = self.exclusion_manager.patterns.copy()
+        
+        # Clear exclusions temporarily
+        self.exclusion_manager.clear_patterns()
+        
+        # Refresh display without filters
+        self._refresh_display()
+        
+        # Check if line is now visible
+        line_index = self.find_display_index_for_line_number(target_line_number)
+        
+        if line_index is not None:
+            # Success - keep filters cleared and enter visual mode
+            return True
+        else:
+            # Restore original state if still not visible
+            self.search_term = original_search_term
+            self.search_active = original_search_active
+            
+            # Restore exclusions
+            for pattern in original_patterns:
+                self.exclusion_manager.add_pattern(
+                    pattern.pattern,
+                    pattern.is_regex,
+                    pattern.case_sensitive
+                )
+            
+            self._refresh_display()
+            return False
