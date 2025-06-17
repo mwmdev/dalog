@@ -4,6 +4,7 @@
 
 ### Fixed
 - Fixed issue with line jumps in visual mode
+- Refactor tests
 
 ### Added
 - Entering specific line number in visual mode
