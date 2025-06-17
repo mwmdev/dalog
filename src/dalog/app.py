@@ -3,7 +3,7 @@ Main Textual application for DaLog.
 """
 
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding
@@ -60,6 +60,7 @@ class DaLogApp(App):
         tail_lines: Optional[int] = None,
         theme: Optional[str] = None,
         live_reload: Optional[bool] = None,
+        exclude_patterns: Optional[List[str]] = None,
         **kwargs,
     ):
         """Initialize the DaLog application.
@@ -71,6 +72,7 @@ class DaLogApp(App):
             tail_lines: Optional number of lines to tail from end of file
             theme: Optional Textual theme name to apply
             live_reload: Optional override for live reload setting
+            exclude_patterns: Optional list of exclusion patterns from CLI (case-sensitive regex)
         """
         super().__init__(**kwargs)
         self.log_file = Path(log_file)
@@ -78,6 +80,10 @@ class DaLogApp(App):
         self.initial_search = initial_search
         self.tail_lines = tail_lines
         self.theme_name = theme
+        
+        # Store CLI exclusion parameters (case sensitive regex by default)
+        self.cli_exclude_patterns = exclude_patterns or []
+        
         # Load configuration early, before widgets are created
         self._load_config()
 
@@ -138,6 +144,9 @@ class DaLogApp(App):
 
         # Load initial log file
         await self._load_log_file(self.log_file)
+
+        # Apply CLI exclusions if provided
+        self._apply_cli_exclusions()
 
         # Apply initial search if provided
         if self.initial_search:
@@ -210,7 +219,7 @@ class DaLogApp(App):
         # Only reload if it's the current file
         if str(file_path) == self.current_file:
             await self._load_log_file(file_path)
-            self.notify(f"File updated: {file_path.name}", timeout=2)
+            # self.notify(f"File updated: {file_path.name}", timeout=2)
 
     # Actions
     async def action_toggle_search(self) -> None:
@@ -393,3 +402,29 @@ class DaLogApp(App):
                 # Exit visual mode
                 self.log_viewer.exit_visual_mode()
                 self.notify("Exited visual mode", timeout=2)
+
+    def _apply_cli_exclusions(self) -> None:
+        """Apply CLI exclusion patterns to the log viewer."""
+        if not self.cli_exclude_patterns or not self.log_viewer:
+            return
+
+        exclusion_manager = self.log_viewer.exclusion_manager
+        added_count = 0
+
+        for pattern in self.cli_exclude_patterns:
+            if exclusion_manager.add_pattern(
+                pattern=pattern,
+                is_regex=True,
+                case_sensitive=True,
+            ):
+                added_count += 1
+
+        if added_count > 0:
+            # Refresh the display to apply exclusions
+            self.log_viewer.refresh_exclusions()
+            
+            # Show notification about applied exclusions
+            self.notify(
+                f"Applied {added_count} CLI exclusion pattern(s)",
+                timeout=3,
+            )

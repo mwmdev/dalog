@@ -10,7 +10,7 @@ try:
     __version__ = version("dalog")
 except Exception:
     # Fallback for development/editable installs
-    __version__ = "0.1.0"
+    __version__ = "0.1.1"
 
 __author__ = "Mike Wassmer"
 __email__ = "mikewassmer@protonmail.com"

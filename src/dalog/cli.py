@@ -5,7 +5,7 @@ Command-line interface for DaLog.
 
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional, Tuple
 
 import click
 
@@ -51,6 +51,13 @@ def print_version(ctx, param, value):
     help="Set the Textual theme (e.g., nord, gruvbox, tokyo-night, textual-dark)",
 )
 @click.option(
+    "--exclude",
+    "-e",
+    type=str,
+    multiple=True,
+    help="Exclude lines matching pattern (can be used multiple times). Supports regex patterns and is case-sensitive.",
+)
+@click.option(
     "--version",
     "-V",
     is_flag=True,
@@ -65,6 +72,7 @@ def main(
     search: Optional[str],
     tail: Optional[int],
     theme: Optional[str],
+    exclude: Tuple[str, ...],
 ) -> None:
     """
     dalog - Your friendly terminal logs viewer
@@ -80,9 +88,16 @@ def main(
         dalog --tail 1000 large-app.log
 
         dalog --config ~/.config/dalog/custom.toml app.log
+
+        dalog --exclude "DEBUG" --exclude "INFO" app.log
+
+        dalog --exclude "ERROR.*timeout" app.log
     """
     # Convert path to string
     log_file_path = str(Path(log_file).resolve())
+
+    # Convert exclude tuple to list
+    exclude_patterns = list(exclude) if exclude else []
 
     # Create and run the application
     try:
@@ -92,6 +107,7 @@ def main(
             initial_search=search,
             tail_lines=tail,
             theme=theme,
+            exclude_patterns=exclude_patterns,
         )
 
         # Run the app

@@ -1,6 +1,6 @@
 # `dalog` - Your friendly terminal logs viewer
 
-![Version](https://img.shields.io/badge/version-0.1.0-blue)
+![Version](https://img.shields.io/badge/version-0.1.1-blue)
 ![Python Version](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
@@ -9,14 +9,15 @@
 ## ✨ Features
 
 - **🔍 Live Search**: Real-time filtering 
-- **🎨 Smart Styling**: Pattern-based syntax highlighting with regex support
-- **🎭 Theme Support**: Choose from built-in Textual themes via CLI
-- **⌨️ Vim Keybindings**: Full vim-style navigation with customizable keybindings
-- **🔄 Live Reload**: Automatically update when log files change (like `tail -f`)
 - **🚫 Exclusion System**: Filter out unwanted log entries with persistent patterns and regex
+- **🎨 Smart Styling**: Pattern-based syntax highlighting with regex support
+- **🔄 Live Reload**: Automatically update when log files change (like `tail -f`)
 - **📋 Visual Mode**: Vi-style visual line selection with clipboard support
 - **🎯 HTML Rendering**: Render HTML tags in logs (configurable tags)
-- **⚙️ Highly Configurable**: Extensive configuration options via TOML files
+- **⌨️ Vim Keybindings**: Full vim-style navigation with customizable keybindings
+- **⚙️ Configurable**: Extensive configuration options via TOML files
+- **🔧 CLI Exclusions**: Filter logs directly from command line with `--exclude` parameter
+- **🎭 Theme Support**: Choose from built-in Textual themes via CLI
 
 ## 📦 Installation
 
@@ -61,6 +62,9 @@ dalog application.log
 # Start with search pre-filled
 dalog --search ERROR application.log
 
+# Exclude unwanted log levels
+dalog --exclude "WARNING" application.log
+
 # Load only last 1000 lines
 dalog --tail 1000 large-application.log
 
@@ -70,6 +74,51 @@ dalog --config ~/.config/dalog/custom.toml app.log
 # Use a specific Textual theme
 dalog --theme gruvbox error.log
 ```
+
+### CLI Arguments
+
+#### Required Arguments
+
+- **`log_file`** - The path to the log file you want to view
+  - Must be an existing, readable file
+  - Example: `dalog application.log` or `dalog /var/log/app.log`
+
+#### Optional Arguments
+
+- **`--config` / `-c`** - Specify a custom configuration file
+  - Type: Path to existing TOML configuration file
+  - Example: `dalog --config ~/.config/dalog/custom.toml app.log`
+  - If not specified, dalog searches for config files in the standard locations
+
+- **`--search` / `-s`** - Start dalog with a search term already applied
+  - Type: String (search term or regex pattern)
+  - Example: `dalog --search "ERROR" app.log`
+  - Example: `dalog -s "user_id=\\d+" app.log` (regex pattern)
+
+- **`--tail` / `-t`** - Load only the last N lines from the file
+  - Type: Integer (number of lines)
+  - Useful for large log files to improve startup performance
+  - Example: `dalog --tail 1000 large-app.log`
+  - Example: `dalog -t 500 app.log`
+
+- **`--theme`** - Set the visual theme for the application
+  - Type: String (theme name)
+  - Available themes include: `textual-dark`, `textual-light`, `nord`, `gruvbox`, `catppuccin-mocha`, `dracula`, `tokyo-night`, `monokai`, `flexoki`, `catppuccin-latte`, `solarized-light`
+  - Example: `dalog --theme gruvbox app.log`
+  - Example: `dalog --theme nord error.log`
+
+- **`--exclude` / `-e`** - Exclude lines matching the specified pattern
+  - Type: String (pattern or regex)
+  - Can be used multiple times to exclude multiple patterns
+  - Patterns are **case-sensitive** and support **regex**
+  - Applied in addition to config file exclusions
+  - Example: `dalog --exclude "DEBUG" app.log`
+  - Example: `dalog -e "WARNING" -e "INFO" app.log`
+  - Example: `dalog --exclude "ERROR.*timeout" app.log` (regex)
+
+- **`--version` / `-V`** - Display the version number and exit
+  - Example: `dalog --version`
+  - Example: `dalog -V`
 
 ### Default Keybindings
 
