@@ -6,7 +6,7 @@ import mmap
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterator, List, Optional, Tuple
+from typing import Iterator, List, Optional, Tuple, Dict, Any
 
 
 @dataclass
@@ -15,8 +15,20 @@ class LogLine:
 
     line_number: int
     content: str
-    byte_offset: int
-    byte_length: int
+    byte_offset: int = 0
+    byte_length: int = 0
+    original_content: Optional[str] = None
+
+    def __str__(self) -> str:
+        """Return the content of the line."""
+        return self.content
+
+    def __post_init__(self):
+        """Set default values after initialization."""
+        if self.original_content is None:
+            self.original_content = self.content
+        if self.byte_length == 0:
+            self.byte_length = len(self.content.encode('utf-8'))
 
 
 class LogProcessor:
@@ -28,14 +40,22 @@ class LogProcessor:
         Args:
             file_path: Path to the log file
             tail_lines: Optional number of lines to tail from end
+            
+        Raises:
+            FileNotFoundError: If the log file doesn't exist
         """
+        if not file_path.exists():
+            raise FileNotFoundError(f"Log file not found: {file_path}")
+            
         self.file_path = file_path
         self.tail_lines = tail_lines
+        self.encoding = 'utf-8'
         self._file_size = 0
         self._line_offsets: List[int] = []
         self._total_lines = 0
         self._file_handle = None
         self._mmap = None
+        self._is_open = False
 
     def __enter__(self):
         """Context manager entry."""
@@ -46,39 +66,74 @@ class LogProcessor:
         """Context manager exit."""
         self.close()
 
-    def open(self):
-        """Open the file and create memory map."""
-        if not self.file_path.exists():
-            raise FileNotFoundError(f"Log file not found: {self.file_path}")
+    def open(self) -> None:
+        """Open the log file for reading."""
+        if self._file_handle is not None:
+            return  # Already open
 
-        self._file_size = self.file_path.stat().st_size
+        try:
+            self._file_handle = open(self.file_path, "rb")
+            self._file_size = self.file_path.stat().st_size
+            self._is_open = True
 
-        # Open file in read mode
-        self._file_handle = open(self.file_path, "rb")
+            if self._file_size > 0:
+                self._mmap = mmap.mmap(
+                    self._file_handle.fileno(), 0, access=mmap.ACCESS_READ
+                )
+        except Exception as e:
+            self.close()
+            raise e
 
-        # Create memory map if file is not empty
-        if self._file_size > 0:
-            self._mmap = mmap.mmap(
-                self._file_handle.fileno(), 0, access=mmap.ACCESS_READ
-            )
-
-    def close(self):
-        """Close file handles."""
+    def close(self) -> None:
+        """Close the log file."""
         if self._mmap:
             self._mmap.close()
             self._mmap = None
+
         if self._file_handle:
             self._file_handle.close()
             self._file_handle = None
+            
+        self._is_open = False
 
-    def get_file_info(self) -> dict:
-        """Get file information."""
+    def get_file_info(self) -> Dict[str, Any]:
+        """Get file information including size, modification time, and line count.
+
+        Returns:
+            Dictionary with file information
+        """
+        if not self._is_open:
+            raise RuntimeError("File must be open to get file info")
+
+        # Count lines if we haven't already
+        if self._total_lines == 0:
+            # Count lines by reading through the file
+            self._count_lines()
+
+        stat = self.file_path.stat()
         return {
             "path": str(self.file_path),
-            "size": self._file_size,
-            "size_mb": round(self._file_size / (1024 * 1024), 2),
-            "total_lines": self._total_lines,
+            "size": stat.st_size,
+            "modified": stat.st_mtime,
+            "lines": self._total_lines,
         }
+
+    def _count_lines(self) -> None:
+        """Count total lines in the file."""
+        if not self._mmap:
+            self._total_lines = 0
+            return
+            
+        line_count = 0
+        for i in range(len(self._mmap)):
+            if self._mmap[i] == ord("\n"):
+                line_count += 1
+                
+        # Handle case where file doesn't end with newline
+        if len(self._mmap) > 0 and self._mmap[-1] != ord("\n"):
+            line_count += 1
+            
+        self._total_lines = line_count
 
     def read_lines(self) -> Iterator[LogLine]:
         """Read lines from the file.
@@ -86,7 +141,9 @@ class LogProcessor:
         Yields:
             LogLine objects with line content and metadata
         """
-        if self.tail_lines:
+        if self.tail_lines is not None and self.tail_lines <= 0:
+            return  # Return empty iterator for tail_lines=0
+        elif self.tail_lines:
             yield from self._read_tail_lines()
         else:
             yield from self._read_all_lines()
@@ -94,6 +151,7 @@ class LogProcessor:
     def _read_all_lines(self) -> Iterator[LogLine]:
         """Read all lines from the file."""
         if not self._mmap:
+            self._total_lines = 0
             return
 
         line_number = 1
@@ -124,12 +182,14 @@ class LogProcessor:
                 byte_offset=start_offset,
                 byte_length=len(self._mmap) - start_offset,
             )
+            line_number += 1
 
-        self._total_lines = line_number
+        self._total_lines = line_number - 1
 
     def _read_tail_lines(self) -> Iterator[LogLine]:
         """Read last N lines efficiently."""
         if not self._mmap or self.tail_lines <= 0:
+            self._total_lines = 0
             return
 
         # Find line breaks from the end
@@ -179,8 +239,9 @@ class LogProcessor:
                 byte_offset=current_pos,
                 byte_length=len(self._mmap) - current_pos,
             )
+            line_number += 1
 
-        self._total_lines = line_number
+        self._total_lines = line_number - 1
 
     def search_lines(
         self, pattern: str, case_sensitive: bool = False

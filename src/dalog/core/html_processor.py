@@ -60,13 +60,13 @@ class LogHTMLParser(HTMLParser):
 class HTMLProcessor:
     """Process HTML in log lines."""
 
-    def __init__(self, config: HtmlConfig):
+    def __init__(self, config: Optional[HtmlConfig] = None):
         """Initialize the HTML processor.
 
         Args:
             config: HTML configuration
         """
-        self.config = config
+        self.config = config or HtmlConfig()
         self.tag_styles = {
             "b": Style(bold=True),
             "strong": Style(bold=True),
@@ -76,6 +76,44 @@ class HTMLProcessor:
             "a": Style(color="blue", underline=True),
             "span": Style(),  # No default style for span
         }
+
+    def process_line(self, text: str) -> str:
+        """Process a line of text with HTML tags.
+
+        Args:
+            text: Text to process
+
+        Returns:
+            Processed text (may preserve or strip HTML based on config)
+        """
+        # Quick check if text contains HTML
+        if "<" not in text or ">" not in text:
+            return text
+
+        # Parse HTML to check which tags are present
+        parser = LogHTMLParser(
+            enabled_tags=self.config.enabled_tags,
+            strip_unknown=self.config.strip_unknown_tags,
+        )
+
+        try:
+            parser.feed(text)
+        except Exception:
+            # If parsing fails, return original text
+            return text
+
+        # Build result from parsed parts
+        result = []
+        for content, tag in parser.parts:
+            if tag and tag in self.config.enabled_tags:
+                # For enabled tags, we want to preserve the HTML structure
+                # but since the parser already extracted content, we need to reconstruct
+                result.append(f"<{tag}>{content}</{tag}>")
+            else:
+                # For text content or disabled tags, just add the content
+                result.append(content)
+
+        return "".join(result)
 
     def process_html(self, text: str) -> List[Tuple[str, Optional[Style]]]:
         """Process HTML in text and return styled segments.

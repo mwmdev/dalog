@@ -34,11 +34,13 @@ class TestExclusionManager:
         """Test adding exclusion patterns."""
         manager = ExclusionManager()
         
-        manager.add_pattern("ERROR:")
+        result = manager.add_pattern("ERROR:")
+        assert result is True
         assert "ERROR:" in manager.patterns
         assert len(manager.patterns) == 1
         
-        manager.add_pattern("WARNING:")
+        result = manager.add_pattern("WARNING:")
+        assert result is True
         assert len(manager.patterns) == 2
         assert "WARNING:" in manager.patterns
     
@@ -46,8 +48,10 @@ class TestExclusionManager:
         """Test adding duplicate patterns."""
         manager = ExclusionManager()
         
-        manager.add_pattern("DEBUG:")
-        manager.add_pattern("DEBUG:")  # Duplicate
+        result = manager.add_pattern("DEBUG:")
+        assert result is True
+        result = manager.add_pattern("DEBUG:")  # Duplicate
+        assert result is False
         
         # Should not add duplicates
         assert len(manager.patterns) == 1

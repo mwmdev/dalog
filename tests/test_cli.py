@@ -25,25 +25,80 @@ class TestCLI:
             f.write(content)
             return Path(f.name)
     
-    def test_version_option(self, cli_runner):
-        """Test --version option."""
-        result = cli_runner.invoke(main, ['--version'])
+    @pytest.mark.parametrize("option_args,expected_attr,expected_value", [
+        (['--version'], None, None),  # Special case - just check exit code and output
+        (['-V'], None, None),         # Special case - just check exit code and output
+        (['--help'], None, None),     # Special case - just check exit code and output
+    ])
+    def test_info_options(self, cli_runner, option_args, expected_attr, expected_value):
+        """Test version and help options."""
+        result = cli_runner.invoke(main, option_args)
         assert result.exit_code == 0
-        assert __version__ in result.output
+        
+        if '--version' in option_args or '-V' in option_args:
+            assert __version__ in result.output
+        elif '--help' in option_args:
+            assert "dalog" in result.output
+            assert "View and search a log file" in result.output
+            assert "Examples:" in result.output
     
-    def test_version_short_option(self, cli_runner):
-        """Test -V version option."""
-        result = cli_runner.invoke(main, ['-V'])
-        assert result.exit_code == 0
-        assert __version__ in result.output
+    @patch('dalog.cli.DaLogApp')
+    @pytest.mark.parametrize("option_args,expected_attr,expected_value", [
+        (['--config', 'test_config.toml'], 'config_path', 'test_config.toml'),
+        (['-c', 'test_config.toml'], 'config_path', 'test_config.toml'),
+        (['--search', 'ERROR'], 'initial_search', 'ERROR'),
+        (['-s', 'WARNING'], 'initial_search', 'WARNING'),
+        (['--tail', '100'], 'tail_lines', 100),
+        (['-t', '50'], 'tail_lines', 50),
+        (['--theme', 'nord'], 'theme', 'nord'),
+        (['--theme', 'gruvbox'], 'theme', 'gruvbox'),
+    ])
+    def test_single_options(self, mock_app_class, cli_runner, sample_log_file, option_args, expected_attr, expected_value):
+        """Test individual CLI options."""
+        mock_app = Mock()
+        mock_app_class.return_value = mock_app
+        
+        # Create config file if needed
+        config_file = None
+        if '--config' in option_args or '-c' in option_args:
+            config_file = Path("test_config.toml")
+            config_file.touch()
+        
+        try:
+            result = cli_runner.invoke(main, option_args + [str(sample_log_file)])
+            
+            # Should pass the expected parameter to DaLogApp
+            call_args = mock_app_class.call_args
+            assert call_args[1][expected_attr] == expected_value
+            
+        finally:
+            sample_log_file.unlink()
+            if config_file and config_file.exists():
+                config_file.unlink()
     
-    def test_help_option(self, cli_runner):
-        """Test --help option."""
-        result = cli_runner.invoke(main, ['--help'])
-        assert result.exit_code == 0
-        assert "dalog" in result.output
-        assert "View and search a log file" in result.output
-        assert "Examples:" in result.output
+    @patch('dalog.cli.DaLogApp')
+    @pytest.mark.parametrize("tail_value,expected_value", [
+        ('100', 100),
+        ('0', 0),
+        ('-10', -10),  # Negative values should be accepted
+    ])
+    def test_tail_option_values(self, mock_app_class, cli_runner, sample_log_file, tail_value, expected_value):
+        """Test tail option with different values."""
+        mock_app = Mock()
+        mock_app_class.return_value = mock_app
+        
+        try:
+            result = cli_runner.invoke(main, [
+                '--tail', tail_value,
+                str(sample_log_file)
+            ])
+            
+            # Should accept the tail value
+            call_args = mock_app_class.call_args
+            assert call_args[1]['tail_lines'] == expected_value
+            
+        finally:
+            sample_log_file.unlink()
     
     def test_missing_log_file_argument(self, cli_runner):
         """Test CLI with missing log file argument."""
@@ -81,88 +136,7 @@ class TestCLI:
         finally:
             sample_log_file.unlink()
     
-    @patch('dalog.cli.DaLogApp')
-    def test_config_option(self, mock_app_class, cli_runner, sample_log_file):
-        """Test --config option."""
-        mock_app = Mock()
-        mock_app_class.return_value = mock_app
-        
-        config_file = Path("test_config.toml")
-        
-        try:
-            # Create a dummy config file
-            config_file.touch()
-            
-            result = cli_runner.invoke(main, [
-                '--config', str(config_file),
-                str(sample_log_file)
-            ])
-            
-            # Should pass config_path to DaLogApp
-            call_args = mock_app_class.call_args
-            assert call_args[1]['config_path'] == str(config_file)
-            
-        finally:
-            sample_log_file.unlink()
-            if config_file.exists():
-                config_file.unlink()
-    
-    @patch('dalog.cli.DaLogApp')
-    def test_search_option(self, mock_app_class, cli_runner, sample_log_file):
-        """Test --search option."""
-        mock_app = Mock()
-        mock_app_class.return_value = mock_app
-        
-        try:
-            result = cli_runner.invoke(main, [
-                '--search', 'ERROR',
-                str(sample_log_file)
-            ])
-            
-            # Should pass initial_search to DaLogApp
-            call_args = mock_app_class.call_args
-            assert call_args[1]['initial_search'] == 'ERROR'
-            
-        finally:
-            sample_log_file.unlink()
-    
-    @patch('dalog.cli.DaLogApp')
-    def test_tail_option(self, mock_app_class, cli_runner, sample_log_file):
-        """Test --tail option."""
-        mock_app = Mock()
-        mock_app_class.return_value = mock_app
-        
-        try:
-            result = cli_runner.invoke(main, [
-                '--tail', '100',
-                str(sample_log_file)
-            ])
-            
-            # Should pass tail_lines to DaLogApp
-            call_args = mock_app_class.call_args
-            assert call_args[1]['tail_lines'] == 100
-            
-        finally:
-            sample_log_file.unlink()
-    
-    @patch('dalog.cli.DaLogApp')
-    def test_theme_option(self, mock_app_class, cli_runner, sample_log_file):
-        """Test --theme option."""
-        mock_app = Mock()
-        mock_app_class.return_value = mock_app
-        
-        try:
-            result = cli_runner.invoke(main, [
-                '--theme', 'nord',
-                str(sample_log_file)
-            ])
-            
-            # Should pass theme to DaLogApp
-            call_args = mock_app_class.call_args
-            assert call_args[1]['theme'] == 'nord'
-            
-        finally:
-            sample_log_file.unlink()
+    # Individual option tests are now covered by the parametrized test_single_options above
     
     @patch('dalog.cli.DaLogApp')
     def test_all_options_combined(self, mock_app_class, cli_runner, sample_log_file):
@@ -196,34 +170,7 @@ class TestCLI:
             if config_file.exists():
                 config_file.unlink()
     
-    def test_short_options(self, cli_runner, sample_log_file):
-        """Test short option variants."""
-        with patch('dalog.cli.DaLogApp') as mock_app_class:
-            mock_app = Mock()
-            mock_app_class.return_value = mock_app
-            
-            config_file = Path("test_config.toml")
-            
-            try:
-                config_file.touch()
-                
-                result = cli_runner.invoke(main, [
-                    '-c', str(config_file),
-                    '-s', 'INFO',
-                    '-t', '50',
-                    str(sample_log_file)
-                ])
-                
-                # Should work the same as long options
-                call_args = mock_app_class.call_args
-                assert call_args[1]['config_path'] == str(config_file)
-                assert call_args[1]['initial_search'] == 'INFO'
-                assert call_args[1]['tail_lines'] == 50
-                
-            finally:
-                sample_log_file.unlink()
-                if config_file.exists():
-                    config_file.unlink()
+    # Short option variants are covered by test_single_options parametrized tests
     
     @patch('dalog.cli.DaLogApp')
     def test_keyboard_interrupt_handling(self, mock_app_class, cli_runner, sample_log_file):
@@ -273,43 +220,7 @@ class TestCLI:
         finally:
             sample_log_file.unlink()
     
-    def test_negative_tail_value(self, cli_runner, sample_log_file):
-        """Test CLI with negative tail value."""
-        with patch('dalog.cli.DaLogApp') as mock_app_class:
-            mock_app = Mock()
-            mock_app_class.return_value = mock_app
-            
-            try:
-                result = cli_runner.invoke(main, [
-                    '--tail', '-10',
-                    str(sample_log_file)
-                ])
-                
-                # Should accept negative values (implementation decides what to do)
-                call_args = mock_app_class.call_args
-                assert call_args[1]['tail_lines'] == -10
-                
-            finally:
-                sample_log_file.unlink()
-    
-    def test_zero_tail_value(self, cli_runner, sample_log_file):
-        """Test CLI with zero tail value."""
-        with patch('dalog.cli.DaLogApp') as mock_app_class:
-            mock_app = Mock()
-            mock_app_class.return_value = mock_app
-            
-            try:
-                result = cli_runner.invoke(main, [
-                    '--tail', '0',
-                    str(sample_log_file)
-                ])
-                
-                # Should accept zero tail value
-                call_args = mock_app_class.call_args
-                assert call_args[1]['tail_lines'] == 0
-                
-            finally:
-                sample_log_file.unlink()
+    # Tail value tests are now covered by the parametrized test_tail_option_values above
     
     def test_path_resolution(self, cli_runner):
         """Test that log file path is properly resolved."""
@@ -317,8 +228,9 @@ class TestCLI:
             mock_app = Mock()
             mock_app_class.return_value = mock_app
             
-            # Create a log file in a subdirectory
-            temp_dir = Path(tempfile.mkdtemp())
+            # Create a log file in a subdirectory of current working directory
+            temp_dir = Path.cwd() / "temp_test_dir"
+            temp_dir.mkdir(exist_ok=True)
             log_file = temp_dir / "test.log"
             log_file.write_text("test content")
             
@@ -342,6 +254,7 @@ class TestCLI:
         # Create mock context
         ctx = Mock()
         ctx.resilient_parsing = False
+        ctx.exit.side_effect = SystemExit(0)  # Make exit() raise SystemExit
         
         # Test with value=True (version requested)
         with pytest.raises(SystemExit):

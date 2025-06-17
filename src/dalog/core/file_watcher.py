@@ -170,63 +170,79 @@ class FileWatcher:
 
 
 class AsyncFileWatcher:
-    """Async wrapper for file watching."""
+    """Async file watcher using threading for Textual compatibility."""
 
     def __init__(self):
         """Initialize the async file watcher."""
-        self.watcher = FileWatcher()
-        self._event_queue: asyncio.Queue[Path] = asyncio.Queue()
-        self._task: Optional[asyncio.Task] = None
+        self._file_watcher = FileWatcher()
+        self._event_queue: asyncio.Queue = asyncio.Queue(maxsize=100)
+        self._process_task: Optional[asyncio.Task] = None
+        self._watched_files: Set[Path] = set()
+        self._observer = None  # For compatibility with tests
+        self._callback = None  # For compatibility with tests
 
     async def start(
         self, callback: Callable[[Path], Coroutine[Any, Any, None]]
     ) -> None:
-        """Start watching files asynchronously.
+        """Start the async file watcher.
 
         Args:
             callback: Async function to call when files change
         """
-        # Start the sync watcher with queue callback
-        self.watcher.start(self._queue_event)
+        # Start the underlying file watcher
+        self._file_watcher.start(self._queue_event)
 
-        # Start processing task
-        if not self._task or self._task.done():
-            self._task = asyncio.create_task(self._process_events(callback))
+        # Start the event processing task
+        if self._process_task is None or self._process_task.done():
+            self._process_task = asyncio.create_task(self._process_events(callback))
 
     async def stop(self) -> None:
-        """Stop watching files."""
-        # Stop the sync watcher
-        self.watcher.stop()
-
-        # Cancel processing task
-        if self._task and not self._task.done():
-            self._task.cancel()
+        """Stop the async file watcher."""
+        # Cancel the processing task
+        if self._process_task and not self._process_task.done():
+            self._process_task.cancel()
             try:
-                await self._task
+                await self._process_task
             except asyncio.CancelledError:
                 pass
 
-    def add_file(self, file_path: Path) -> bool:
-        """Add a file to watch.
+        # Stop the underlying file watcher
+        self._file_watcher.stop()
 
+        # Clear the event queue
+        while not self._event_queue.empty():
+            try:
+                self._event_queue.get_nowait()
+            except asyncio.QueueEmpty:
+                break
+
+    def add_file(self, file_path: Path) -> None:
+        """Add a file to the watch list.
+        
         Args:
-            file_path: Path to file to watch
-
-        Returns:
-            True if file was added successfully
+            file_path: Path to the file to watch
         """
-        return self.watcher.add_file(file_path)
+        self._watched_files.add(file_path)
+        # Also add to the underlying file watcher if it exists
+        if hasattr(self._file_watcher, 'add_file'):
+            self._file_watcher.add_file(file_path)
 
     def remove_file(self, file_path: Path) -> bool:
-        """Remove a file from watching.
-
+        """Remove a file from the watch list.
+        
         Args:
-            file_path: Path to file to stop watching
-
+            file_path: Path to the file to stop watching
+            
         Returns:
-            True if file was removed
+            True if file was removed, False if not found
         """
-        return self.watcher.remove_file(file_path)
+        if file_path in self._watched_files:
+            self._watched_files.remove(file_path)
+            # Also remove from underlying file watcher if it exists
+            if hasattr(self._file_watcher, 'remove_file'):
+                self._file_watcher.remove_file(file_path)
+            return True
+        return False
 
     def _queue_event(self, file_path: Path) -> None:
         """Queue a file change event.

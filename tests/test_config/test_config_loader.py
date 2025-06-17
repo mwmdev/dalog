@@ -71,8 +71,20 @@ class TestConfigLoader:
     def test_validate_config_with_invalid_pattern(self):
         """Test config validation with invalid regex pattern."""
         config = get_default_config()
-        # Create invalid regex pattern
-        config.styling.patterns["bad_pattern"] = type(config.styling.patterns["error"])(
+        
+        # We need to bypass the StylePattern validation to create an invalid pattern
+        # We'll do this by creating a mock StylePattern-like object
+        class InvalidStylePattern:
+            def __init__(self, pattern, color):
+                self.pattern = pattern
+                self.color = color
+                self.background = None
+                self.bold = False
+                self.italic = False
+                self.underline = False
+        
+        # Create invalid regex pattern by bypassing normal validation
+        config.styling.patterns["bad_pattern"] = InvalidStylePattern(
             pattern="[invalid regex",  # Unclosed bracket
             color="red"
         )

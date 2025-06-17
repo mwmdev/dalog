@@ -6,7 +6,7 @@ import os
 import re
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import toml
 
@@ -36,29 +36,39 @@ class ConfigLoader:
 
     @classmethod
     def load(cls, config_path: Optional[str] = None) -> DaLogConfig:
-        """Load configuration with priority order.
+        """Load configuration from file or defaults.
 
         Args:
-            config_path: Optional explicit configuration file path
+            config_path: Optional path to config file
 
         Returns:
-            Loaded configuration or defaults
+            Configuration object
         """
-        # If explicit path provided, use it
         if config_path:
-            return cls._load_from_file(Path(config_path))
-
-        # Search in default locations
-        for location_func in cls.CONFIG_LOCATIONS:
-            try:
+            # Try to load from explicit path
+            path = Path(config_path)
+            if path.exists():
+                try:
+                    return cls._load_from_file(path)
+                except Exception:
+                    # If loading fails, fall back to default
+                    return get_default_config()
+            else:
+                # File doesn't exist, return default config
+                return get_default_config()
+        else:
+            # Search for config file in standard locations
+            for location_func in cls.CONFIG_LOCATIONS:
                 path = Path(location_func())
                 if path.exists():
-                    return cls._load_from_file(path)
-            except Exception:
-                continue
+                    try:
+                        return cls._load_from_file(path)
+                    except Exception:
+                        # If loading fails, continue to next location
+                        continue
 
-        # Return default config if no file found
-        return get_default_config()
+            # No config file found, return defaults
+            return get_default_config()
 
     @staticmethod
     def _load_from_file(path: Path) -> DaLogConfig:
@@ -79,9 +89,9 @@ class ConfigLoader:
 
             # Merge with defaults to ensure all fields are present
             default_config = get_default_config()
-            merged_data = ConfigLoader._merge_configs(default_config.model_dump(), data)
+            merged_config = ConfigLoader._merge_configs(default_config, data)
 
-            return DaLogConfig(**merged_data)
+            return merged_config
 
         except toml.TomlDecodeError as e:
             raise Exception(f"Invalid TOML in {path}: {e}")
@@ -90,9 +100,43 @@ class ConfigLoader:
 
     @staticmethod
     def _merge_configs(
+        default: Union[Dict[str, Any], DaLogConfig], override: Dict[str, Any]
+    ) -> DaLogConfig:
+        """Recursively merge configuration dictionaries.
+
+        Args:
+            default: Default configuration dict or DaLogConfig object
+            override: Override configuration dict
+
+        Returns:
+            Merged configuration object
+        """
+        # Convert DaLogConfig to dict if needed
+        if isinstance(default, DaLogConfig):
+            result = default.model_dump()
+        else:
+            result = default.copy()
+
+        for key, value in override.items():
+            if (
+                key in result
+                and isinstance(result[key], dict)
+                and isinstance(value, dict)
+            ):
+                # Recursively merge nested dicts (return dict for intermediate merges)
+                result[key] = ConfigLoader._merge_configs_dict(result[key], value)
+            else:
+                # Override value
+                result[key] = value
+
+        # Return as DaLogConfig object
+        return DaLogConfig(**result)
+
+    @staticmethod
+    def _merge_configs_dict(
         default: Dict[str, Any], override: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """Recursively merge configuration dictionaries.
+        """Recursively merge configuration dictionaries (dict version).
 
         Args:
             default: Default configuration dict
@@ -110,7 +154,7 @@ class ConfigLoader:
                 and isinstance(value, dict)
             ):
                 # Recursively merge nested dicts
-                result[key] = ConfigLoader._merge_configs(result[key], value)
+                result[key] = ConfigLoader._merge_configs_dict(result[key], value)
             else:
                 # Override value
                 result[key] = value

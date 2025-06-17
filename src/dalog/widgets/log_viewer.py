@@ -124,12 +124,12 @@ class LogViewerWidget(RichLog):
         self.displayed_lines.clear()
 
         # Reset excluded lines counter for accurate counts
-        self.exclusion_manager.reset_excluded_lines()
+        self.exclusion_manager.reset_excluded_count()
 
         line_index = 0
         for line in self.all_lines:
             # Check exclusion patterns
-            if self.exclusion_manager.is_excluded(line.content, line.line_number):
+            if self.exclusion_manager.should_exclude(line.content):
                 continue
 
             # Apply search filter if active
