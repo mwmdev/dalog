@@ -6,20 +6,20 @@
 
 `dalog` is a terminal-based log viewing application built with Python and Textual. It provides advanced features for viewing, searching, and analyzing log files with a modern, keyboard-driven interface optimized for developer workflows.
 
-## ✨ Features
+## Features
 
-- **🔍 Live Search**: Real-time filtering 
-- **🚫 Exclusion System**: Filter out unwanted log entries with persistent patterns and regex
-- **🎨 Smart Styling**: Pattern-based syntax highlighting with regex support
-- **🔄 Live Reload**: Automatically update when log files change (like `tail -f`)
-- **📋 Visual Mode**: Vi-style visual line selection with clipboard support
-- **🎯 HTML Rendering**: Render HTML tags in logs (configurable tags)
-- **⌨️ Vim Keybindings**: Full vim-style navigation with customizable keybindings
-- **⚙️ Configurable**: Extensive configuration options via TOML files
-- **🔧 CLI Exclusions**: Filter logs directly from command line with `--exclude` parameter
-- **🎭 Theme Support**: Choose from built-in Textual themes via CLI
+- **Live Search**: Real-time filtering 
+- **Exclusion System**: Filter out unwanted log entries with persistent patterns and regex
+- **Smart Styling**: Pattern-based syntax highlighting with regex support
+- **Live Reload**: Automatically update when log files change (like `tail -f`)
+- **Visual Mode**: Vi-style visual line selection with clipboard support
+- **HTML Rendering**: Render HTML tags in logs (configurable tags)
+- ** Vim Keybindings**: Full vim-style navigation with customizable keybindings
+- ** Configurable**: Extensive configuration options via TOML files
+- **CLI Exclusions**: Filter logs directly from command line with `--exclude` parameter
+- **Theme Support**: Choose from built-in Textual themes via CLI
 
-## 📦 Installation
+## Installation
 
 ### Via pip (recommended)
 
@@ -41,17 +41,7 @@ pip install -e .
 pip install -e ".[dev]"
 ```
 
-### NixOS Users
-
-```bash
-# Enter the development environment
-nix-shell
-
-# Install in development mode
-pip install -e .
-```
-
-## 🚀 Quick Start
+## Quick Start
 
 ### Basic Usage
 
@@ -150,7 +140,7 @@ DaLog supports vi-style visual line selection:
 5. Press `y` to yank (copy) selected lines to clipboard
 6. Press `ESC` to exit visual mode without copying
 
-## ⚙️ Configuration
+## Configuration
 
 DaLog looks for configuration files in the following order:
 
@@ -208,7 +198,7 @@ regex = true
 case_sensitive = false
 ```
 
-## 🎨 Styling System
+## Styling System
 
 DaLog supports powerful regex-based styling patterns:
 
@@ -227,7 +217,7 @@ email = { pattern = "\\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Z|a-z]{2,}\\b", co
 user_id = { pattern = "user_id=\\d+", color = "green", bold = true }
 ```
 
-## 🛠️ Development
+## Development
 
 ### Setting up the development environment
 
@@ -264,7 +254,7 @@ dalog/
 └── pyproject.toml      # Project configuration
 ```
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
 
@@ -274,11 +264,11 @@ Contributions are welcome! Please feel free to submit a Pull Request. For major 
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## 📝 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - Built with [Textual](https://textual.textualize.io/) - an amazing TUI framework
 - Inspired by traditional Unix tools like `tail`, `less`, and `grep`
