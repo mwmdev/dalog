@@ -41,155 +41,155 @@ def get_default_config() -> DaLogConfig:
             show_line_numbers=True,
             wrap_lines=False,
             max_line_length=1000,
-            visual_mode_bg="white",
+            visual_mode_bg="#504945",
         ),
         styling=StylingConfig(
             patterns={
                 "error": StylePattern(
                     pattern=r"\b(ERROR|FAIL|FAILED|FAILURE|EXCEPTION)\b",
-                    color="white",
-                    background="red",
+                    color="#ebdbb2",
+                    background="#cc241d",
                     bold=True,
                 ),
                 "warning": StylePattern(
                     pattern=r"\b(WARN|WARNING)\b",
-                    color="black",
-                    background="yellow",
+                    color="#282828",
+                    background="#d79921",
                     bold=True,
                 ),
                 "notice": StylePattern(
                     pattern=r"\b(NOTICE|PHP Notice)\b",
-                    color="black",
-                    background="white",
+                    color="#282828",
+                    background="#928374",
                     bold=True,
                 ),
                 "info": StylePattern(
                     pattern=r"\b(INFO|INFORMATION)\b",
-                    color="white",
-                    background="blue",
+                    color="#ebdbb2",
+                    background="#458588",
                     bold=True,
                 ),
                 "debug": StylePattern(
                     pattern=r"\b(DEBUG|TRACE)\b",
-                    color="white",
-                    background="bright_black",
+                    color="#ebdbb2",
+                    background="#665c54",
                     bold=True,
                 ),
                 "success": StylePattern(
                     pattern=r"\b(SUCCESS|OK|PASSED|COMPLETE)\b",
-                    color="white",
-                    background="green",
+                    color="#ebdbb2",
+                    background="#98971a",
                     bold=True,
                 ),
                 "function_name": StylePattern(
                     pattern=r"\b(Function|function|func|Func|method|Method|def|Def)\s+(\w+)",
-                    color="bright_yellow",
+                    color="#fabd2f",
                     bold=True,
                 ),
                 "class_name": StylePattern(
                     pattern=r"\b(Class|class|Type|type|interface|Interface)\s+(\w+)",
-                    color="bright_green",
+                    color="#b8bb26",
                     bold=True,
                 ),
                 "file_path": StylePattern(
                     pattern=r"\b(?:in|at|from|file|File)\s+([\/\w\-\.]+\.\w+)",
-                    color="cyan",
+                    color="#83a598",
                     underline=True,
                 ),
                 "line_number": StylePattern(
-                    pattern=r"\b(?:line|Line|L)\s+(\d+)", color="bright_magenta"
+                    pattern=r"\b(?:line|Line|L)\s+(\d+)", color="#d3869b"
                 ),
                 "variable_name": StylePattern(
                     pattern=r"\b(?:variable|Variable|var|Var|param|Param|argument|Argument)\s+(\w+)",
-                    color="bright_blue",
+                    color="#83a598",
                 ),
                 "module_name": StylePattern(
                     pattern=r"\b(?:module|Module|package|Package|namespace|Namespace)\s+(\w+)",
-                    color="bright_cyan",
+                    color="#8ec07c",
                 ),
                 "error_code": StylePattern(
                     pattern=r"\b(?:error|Error|code|Code)\s+(E\d+|\w+_ERROR|\w+_ERR)",
-                    color="bright_red",
+                    color="#fb4934",
                     bold=True,
                 ),
             },
             timestamps={
                 "iso_datetime": StylePattern(
                     pattern=r"\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:,\d{3})?",
-                    color="black",
-                    background="bright_black",
+                    color="#282828",
+                    background="#a89984",
                     bold=True,
                 ),
                 "standard_date": StylePattern(
                     pattern=r"\d{4}-\d{2}-\d{2}",
-                    color="black",
-                    background="bright_black",
+                    color="#282828",
+                    background="#928374",
                 ),
                 "time_only": StylePattern(
                     pattern=r"\b\d{2}:\d{2}:\d{2}(?:[,\.]\d{3})?\b",
-                    color="black",
-                    background="bright_black",
+                    color="#282828",
+                    background="#928374",
                 ),
                 "log_timestamp": StylePattern(
-                    pattern=r"^\[[\d\s:-]+\]", color="black", background="bright_black"
+                    pattern=r"^\[[\d\s:-]+\]", color="#282828", background="#928374"
                 ),
                 "iso_datetime_dot": StylePattern(
                     pattern=r"\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}\.\d{3}",
-                    color="black",
-                    background="bright_black",
+                    color="#282828",
+                    background="#a89984",
                     bold=True,
                 ),
                 "bracketed_datetime": StylePattern(
                     pattern=r"\[\d{1,2}-[A-Za-z]{3}-\d{4} \d{2}:\d{2}:\d{2} [A-Z]{3,4}\]",
-                    color="black",
-                    background="bright_black",
+                    color="#282828",
+                    background="#a89984",
                     bold=True,
                 ),
             },
             custom={
                 "ip_address": StylePattern(
-                    pattern=r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b", color="magenta"
+                    pattern=r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b", color="#d3869b"
                 ),
                 "url": StylePattern(
-                    pattern=r"https?://[^\s]+", color="blue", underline=True
+                    pattern=r"https?://[^\s]+", color="#458588", underline=True
                 ),
                 "email": StylePattern(
                     pattern=r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b",
-                    color="cyan",
+                    color="#8ec07c",
                 ),
                 "uuid": StylePattern(
                     pattern=r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b",
-                    color="yellow",
+                    color="#d79921",
                 ),
                 "function_name": StylePattern(
                     pattern=r"\b(Function|function|func|Func|method|Method|def|Def)\s+(\w+)",
-                    color="bright_yellow",
+                    color="#fabd2f",
                     bold=True,
                 ),
                 "class_name": StylePattern(
                     pattern=r"\b(Class|class|Type|type|interface|Interface)\s+(\w+)",
-                    color="bright_green",
+                    color="#b8bb26",
                     bold=True,
                 ),
                 "file_path": StylePattern(
                     pattern=r"\b(?:in|at|from|file|File)\s+([\/\w\-\.]+\.\w+)",
-                    color="cyan",
+                    color="#83a598",
                     underline=True,
                 ),
                 "line_number": StylePattern(
-                    pattern=r"\b(?:line|Line|L)\s+(\d+)", color="bright_magenta"
+                    pattern=r"\b(?:line|Line|L)\s+(\d+)", color="#d3869b"
                 ),
                 "variable_name": StylePattern(
                     pattern=r"\b(?:variable|Variable|var|Var|param|Param|argument|Argument)\s+(\w+)",
-                    color="bright_blue",
+                    color="#83a598",
                 ),
                 "module_name": StylePattern(
                     pattern=r"\b(?:module|Module|package|Package|namespace|Namespace)\s+(\w+)",
-                    color="bright_cyan",
+                    color="#8ec07c",
                 ),
                 "error_code": StylePattern(
                     pattern=r"\b(?:error|Error|code|Code)\s+(E\d+|\w+_ERROR|\w+_ERR)",
-                    color="bright_red",
+                    color="#fb4934",
                     bold=True,
                 ),
             },
