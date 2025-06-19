@@ -161,6 +161,11 @@ def get_default_config() -> DaLogConfig:
                     pattern=r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b",
                     color="#d79921",
                 ),
+                "json_object": StylePattern(
+                    pattern=r"\{[^{}]*\}",
+                    color="#fe8019",
+                    bold=True,
+                ),
                 "function_name": StylePattern(
                     pattern=r"\b(Function|function|func|Func|method|Method|def|Def)\s+(\w+)",
                     color="#fabd2f",
