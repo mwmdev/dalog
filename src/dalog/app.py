@@ -3,18 +3,158 @@ Main Textual application for DaLog.
 """
 
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Container, Vertical
 from textual.css.query import NoMatches
 from textual.reactive import reactive
-from textual.widgets import Footer, Input, Static
+from textual.widgets import Footer, Input, Static, DataTable, Label
+from textual.screen import ModalScreen
 
 from .config import ConfigLoader, DaLogConfig
 from .core import AsyncFileWatcher, LogProcessor
+from .core.log_reader import create_unified_log_reader
+from .core.remote_reader import is_ssh_url
+from .core.ssh_file_watcher import AsyncSSHFileWatcher
 from .widgets import ExclusionModal, LogViewerWidget
+
+
+class HelpScreen(ModalScreen):
+    """Modal screen for displaying help information."""
+    
+    DEFAULT_CSS = """
+    HelpScreen {
+        align: center middle;
+        background: rgba(0, 0, 0, 0.7);
+    }
+    
+    HelpScreen > Container {
+        width: 60;
+        height: auto;
+        max-height: 90%;
+        background: rgba(40, 40, 40, 0.95);
+        border: solid $accent;
+        padding: 1 2;
+    }
+    
+    HelpScreen Label {
+        width: 100%;
+        text-align: center;
+        background: transparent;
+        color: $accent;
+        text-style: bold;
+        margin-bottom: 1;
+    }
+    
+    HelpScreen .section-header {
+        width: 100%;
+        text-align: left;
+        background: transparent;
+        color: $accent;
+        text-style: bold;
+        margin: 1 0 0 0;
+        padding-left: 1;
+    }
+    
+    HelpScreen DataTable {
+        width: 100%;
+        height: auto;
+        background: transparent;
+        color: $text;
+        margin-bottom: 1;
+        overflow-x: hidden;
+        scrollbar-size: 0 0;
+    }
+    
+    HelpScreen DataTable > .datatable--header {
+        display: none;
+    }
+    
+    HelpScreen DataTable > .datatable--cursor {
+        background: transparent;
+        color: $text;
+    }
+    
+    HelpScreen DataTable > .datatable--hover {
+        background: transparent;
+    }
+    
+    HelpScreen DataTable .datatable--even-row {
+        background: transparent;
+    }
+    
+    HelpScreen DataTable .datatable--odd-row {
+        background: $surface 50%;
+    }
+    
+    HelpScreen .help-footer {
+        width: 100%;
+        text-align: center;
+        color: $text-muted;
+        margin-top: 1;
+        background: transparent;
+    }
+    """
+    
+    def compose(self) -> ComposeResult:
+        """Compose the help screen layout."""
+        with Container():
+            yield Label("Help")
+            
+            # General commands first
+            yield Static("▸ General", classes="section-header")
+            general_table = DataTable(show_header=False, cursor_type="none", zebra_stripes=False)
+            general_table.add_column("Key", width=12)
+            general_table.add_column("Action", width=40)
+            
+            general_table.add_row("/", "Search")
+            general_table.add_row("r", "Reload file")
+            general_table.add_row("L", "Toggle live reload")
+            general_table.add_row("e", "Manage exclusions")
+            general_table.add_row("w", "Toggle line wrapping")
+            general_table.add_row("?", "Show this help")
+            general_table.add_row("q", "Quit")
+            
+            yield general_table
+            
+            # Navigation section
+            yield Static("▸ Navigation", classes="section-header")
+            nav_table = DataTable(show_header=False, cursor_type="none", zebra_stripes=False)
+            nav_table.add_column("Key", width=12)
+            nav_table.add_column("Action", width=40)
+            
+            nav_table.add_row("j/k", "Move one line up/down")
+            nav_table.add_row("h/l", "Scroll left/right")
+            nav_table.add_row("g/G", "Go to top/bottom")
+            nav_table.add_row("Ctrl+u/d", "Page up/down")
+            
+            yield nav_table
+            
+            # Visual mode section
+            yield Static("▸ Visual Mode", classes="section-header")
+            visual_table = DataTable(show_header=False, cursor_type="none", zebra_stripes=False)
+            visual_table.add_column("Key", width=12)
+            visual_table.add_column("Action", width=40)
+            
+            visual_table.add_row("V", "Enter visual mode at current line")
+            visual_table.add_row("123V", "Enter visual mode at line 123")
+            visual_table.add_row("v", "Start selection")
+            visual_table.add_row("y", "Copy selected lines")
+            visual_table.add_row("Esc", "Exit visual mode")
+            
+            yield visual_table
+            
+            yield Static("Press any key to close", classes="help-footer")
+    
+    def on_mount(self) -> None:
+        """Focus first table on mount."""
+        self.query_one(DataTable).focus()
+    
+    def on_key(self, event) -> None:
+        """Close help on any key press."""
+        self.dismiss()
 
 
 class DaLogApp(App):
@@ -79,7 +219,7 @@ class DaLogApp(App):
             exclude_patterns: Optional list of exclusion patterns from CLI (case-sensitive regex)
         """
         super().__init__(**kwargs)
-        self.log_file = Path(log_file)
+        self.log_file = log_file  # Keep as string to support SSH URLs
         self.config_path = config_path
         self.initial_search = initial_search
         self.tail_lines = tail_lines
@@ -99,6 +239,7 @@ class DaLogApp(App):
         self.log_viewer = None
         self.search_input = None
         self.file_watcher = AsyncFileWatcher()
+        self.ssh_file_watcher = AsyncSSHFileWatcher()
 
         # Set the initial file
         self.current_file = str(self.log_file)
@@ -142,9 +283,10 @@ class DaLogApp(App):
                     timeout=5,
                 )
 
-        # Start file watcher if live reload is enabled
+        # Start file watchers if live reload is enabled
         if self.live_reload:
             await self.file_watcher.start(self._on_file_changed)
+            await self.ssh_file_watcher.start(self._on_ssh_file_changed)
 
         # Load initial log file
         await self._load_log_file(self.log_file)
@@ -159,8 +301,9 @@ class DaLogApp(App):
 
     async def on_unmount(self) -> None:
         """Called when the app is unmounted."""
-        # Stop file watcher
+        # Stop file watchers
         await self.file_watcher.stop()
+        await self.ssh_file_watcher.stop()
 
     def _load_config(self) -> None:
         """Load configuration from file."""
@@ -185,34 +328,52 @@ class DaLogApp(App):
             # Use default config on error
             self.config = ConfigLoader.load()
 
-    async def _load_log_file(self, file_path: Path) -> None:
-        """Load a log file into the viewer using LogProcessor."""
-        # Check if file exists
-        if not file_path.exists():
-            self.notify(f"File not found: {file_path}", severity="error")
-            return
+    async def _load_log_file(self, file_source: Union[str, Path], is_reload: bool = False) -> None:
+        """Load a log file into the viewer using unified log reader.
+        
+        Args:
+            file_source: Path or SSH URL to the log file
+            is_reload: True if this is a reload triggered by file change
+        """
+        file_source_str = str(file_source)
+        
+        # For local files, check if file exists
+        if not is_ssh_url(file_source_str):
+            file_path = Path(file_source_str)
+            if not file_path.exists():
+                self.notify(f"File not found: {file_path}", severity="error")
+                return
 
         try:
-            # Create log processor
-            processor = LogProcessor(file_path, tail_lines=self.tail_lines)
+            # Create unified log reader (handles both local and SSH)
+            reader = create_unified_log_reader(file_source_str, tail_lines=self.tail_lines)
 
-            # Load file using processor
-            with processor:
+            # Load file using reader
+            with reader:
                 # Get file info
-                file_info = processor.get_file_info()
+                file_info = reader.get_file_info()
 
-                # Load lines into viewer
-                self.log_viewer.load_from_processor(processor)
+                # Load lines into viewer - auto_scroll will handle staying at bottom
+                self.log_viewer.load_from_reader(reader, scroll_to_end=True)
 
-            self.log_processor = processor
-            self.current_file = str(file_path)
+            self.log_reader = reader
+            self.current_file = file_source_str
 
-            # Add to file watcher if live reload is enabled
-            if self.live_reload:
-                self.file_watcher.add_file(file_path)
+            # Add to appropriate file watcher if live reload is enabled
+            if self.live_reload and not is_reload:  # Only add watcher on initial load
+                if is_ssh_url(file_source_str):
+                    # Add to SSH file watcher
+                    if self.ssh_file_watcher.add_ssh_file(file_source_str):
+                        self.notify("Live reload enabled for SSH file", timeout=2)
+                    else:
+                        self.notify("Failed to enable live reload for SSH file", severity="warning", timeout=3)
+                else:
+                    # Add to local file watcher
+                    self.file_watcher.add_file(Path(file_source_str))
 
         except Exception as e:
             self.notify(f"Error loading file: {e}", severity="error")
+
 
     async def _on_file_changed(self, file_path: Path) -> None:
         """Handle file change events from file watcher.
@@ -222,8 +383,19 @@ class DaLogApp(App):
         """
         # Only reload if it's the current file
         if str(file_path) == self.current_file:
-            await self._load_log_file(file_path)
+            await self._load_log_file(str(file_path), is_reload=True)
             # self.notify(f"File updated: {file_path.name}", timeout=2)
+    
+    async def _on_ssh_file_changed(self, ssh_url: str) -> None:
+        """Handle SSH file change events.
+
+        Args:
+            ssh_url: SSH URL of the changed file
+        """
+        # Only reload if it's the current file
+        if ssh_url == self.current_file:
+            await self._load_log_file(ssh_url, is_reload=True)
+            # self.notify(f"SSH file updated", timeout=2)
 
     # Actions
     async def action_toggle_search(self) -> None:
@@ -507,31 +679,4 @@ class DaLogApp(App):
 
     async def action_show_help(self) -> None:
         """Show help information."""
-        help_text = """
-DaLog Help:
-
-Navigation:
-  j/k         - Scroll up/down
-  h/l         - Scroll left/right  
-  g/G         - Go to top/bottom
-  Ctrl+u/d    - Page up/down
-
-Visual Mode:
-  V           - Enter visual mode at current line
-  123V        - Enter visual mode at line 123
-                (automatically clears filters if line is hidden)
-  v           - Start selection (in visual mode)
-  y           - Copy selected lines (in visual mode)
-  j/k         - Move cursor (in visual mode)
-  Esc         - Exit visual mode
-
-Other:
-  /           - Search
-  r           - Reload file
-  L           - Toggle live reload
-  e           - Manage exclusions
-  w           - Toggle line wrapping
-  ?           - Show this help
-  q           - Quit
-        """
-        self.notify(help_text, timeout=12)
+        await self.push_screen(HelpScreen())

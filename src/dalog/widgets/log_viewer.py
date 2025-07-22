@@ -22,6 +22,7 @@ from ..config import DaLogConfig
 from ..core.exclusions import ExclusionManager
 from ..core.html_processor import HTMLProcessor
 from ..core.log_processor import LogLine, LogProcessor
+from ..core.remote_reader import LogReader
 from ..core.styling import StylingEngine
 
 
@@ -50,6 +51,7 @@ class LogViewerWidget(RichLog):
     visual_selection_active = reactive(False)  # Whether selection is active
     visual_start_line = reactive(-1)  # Selection start
     visual_end_line = reactive(-1)  # Selection end
+    
 
     def __init__(self, config: DaLogConfig, **kwargs):
         """Initialize the log viewer.
@@ -62,7 +64,7 @@ class LogViewerWidget(RichLog):
             highlight=True,
             markup=True,
             wrap=config.display.wrap_lines,
-            auto_scroll=False,  # Disable auto-scroll to prevent unwanted scrolling
+            auto_scroll=True,  # Enable auto-scroll to always stay at bottom
             **kwargs,
         )
         self.config = config
@@ -83,11 +85,21 @@ class LogViewerWidget(RichLog):
             case_sensitive=config.exclusions.case_sensitive,
         )
 
-    def scroll_to_end(self) -> None:
-        """Manually scroll to the end of the content."""
-        if self.displayed_lines:
-            max_scroll = max(0, len(self.displayed_lines) - self.size.height)
-            self.scroll_to(0, max_scroll)
+    
+    def debug_scroll_state(self) -> dict:
+        """Get debug information about scroll state."""
+        height = getattr(self.size, 'height', 0) if hasattr(self, 'size') else 0
+        current_scroll = getattr(self.scroll_offset, 'y', 0) if hasattr(self, 'scroll_offset') else 0
+        max_scroll = max(0, len(self.displayed_lines) - height) if height > 0 else 0
+        
+        return {
+            'displayed_lines': len(self.displayed_lines),
+            'total_lines': self.total_lines,
+            'widget_height': height,
+            'current_scroll_y': current_scroll,
+            'max_scroll': max_scroll,
+            'is_at_bottom': current_scroll >= max_scroll - 1 if max_scroll > 0 else True,
+        }
 
     def load_from_processor(self, processor: LogProcessor, scroll_to_end: bool = True) -> None:
         """Load lines from a log processor.
@@ -108,17 +120,39 @@ class LogViewerWidget(RichLog):
 
         self.total_lines = len(self.all_lines)
 
-        # Apply initial display
-        self._refresh_display()
-        
-        # Scroll to end if requested (e.g., for tail mode or initial load)
-        if scroll_to_end and not self.visual_mode:
-            self.scroll_to_end()
+        # Apply initial display - auto_scroll will handle scrolling to end
+        self._refresh_display(preserve_scroll=False)
 
-    def _refresh_display(self) -> None:
-        """Refresh the display based on current filters and search."""
+    def load_from_reader(self, reader: LogReader, scroll_to_end: bool = True) -> None:
+        """Load lines from a unified log reader (supports both local and SSH).
+
+        Args:
+            reader: LogReader instance (LocalLogReader or SSHLogReader)
+            scroll_to_end: Whether to scroll to end after loading (useful for tail mode)
+        """
+        # Clear existing content
+        self.clear()
+        self.all_lines.clear()
+        self.displayed_lines.clear()
+        self.search_matches.clear()
+
+        # Load all lines
+        for line in reader.read_lines():
+            self.all_lines.append(line)
+
+        self.total_lines = len(self.all_lines)
+
+        # Apply initial display - auto_scroll will handle scrolling to end
+        self._refresh_display(preserve_scroll=False)
+
+    def _refresh_display(self, preserve_scroll: bool = True) -> None:
+        """Refresh the display based on current filters and search.
+        
+        Args:
+            preserve_scroll: Whether to preserve current scroll position
+        """
         # Store current scroll position to preserve view
-        current_scroll_y = self.scroll_offset.y if hasattr(self, 'scroll_offset') else 0
+        current_scroll_y = self.scroll_offset.y if (preserve_scroll and hasattr(self, 'scroll_offset')) else 0
         
         self.clear()
         self.displayed_lines.clear()
@@ -146,14 +180,16 @@ class LogViewerWidget(RichLog):
         self.visible_lines = len(self.displayed_lines)
         self.filtered_lines = self.total_lines - self.visible_lines
         
-        # Restore scroll position after refresh, but only if not in visual mode
-        # or if we're not specifically positioning for visual mode
-        if not self.visual_mode and current_scroll_y > 0:
-            # Ensure we don't scroll beyond the content
+        # Restore scroll position after refresh if requested and not in visual mode
+        if preserve_scroll and not self.visual_mode and current_scroll_y > 0:
+            # Temporarily disable auto-scroll to restore position
+            old_auto_scroll = self.auto_scroll
+            self.auto_scroll = False
             max_scroll = max(0, len(self.displayed_lines) - self.size.height)
             target_scroll = min(current_scroll_y, max_scroll)
             if target_scroll >= 0:
                 self.scroll_to(0, target_scroll)
+            self.auto_scroll = old_auto_scroll
 
     def _matches_search(self, line: LogLine) -> bool:
         """Check if a line matches the current search term.

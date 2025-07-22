@@ -21,11 +21,29 @@ def print_version(ctx, param, value):
     ctx.exit()
 
 
+def validate_log_source(ctx, param, value):
+    """Validate log source (local file or SSH URL)."""
+    from .core.remote_reader import is_ssh_url
+    
+    if is_ssh_url(value):
+        # It's an SSH URL, no need to check if file exists locally
+        return value
+    
+    # It's a local file, check if it exists
+    path = Path(value)
+    if not path.exists():
+        raise click.BadParameter(f"File not found: {value}")
+    if not path.is_file():
+        raise click.BadParameter(f"Not a file: {value}")
+    
+    return str(path.resolve())
+
+
 @click.command()
 @click.argument(
     "log_file",
     required=True,
-    type=click.Path(exists=True, readable=True),
+    callback=validate_log_source,
 )
 @click.option(
     "--config",
@@ -78,23 +96,26 @@ def main(
     dalog - Your friendly terminal logs viewer
 
     View and search a log file with a modern terminal interface.
+    Supports both local files and remote files via SSH.
 
     Examples:
 
         dalog app.log
 
+        dalog user@host:/var/log/app.log
+
         dalog --search ERROR app.log
 
-        dalog --tail 1000 large-app.log
+        dalog --tail 1000 user@host:/var/log/large-app.log
 
         dalog --config ~/.config/dalog/custom.toml app.log
 
         dalog --exclude "DEBUG" --exclude "INFO" app.log
 
-        dalog --exclude "ERROR.*timeout" app.log
+        dalog --exclude "ERROR.*timeout" user@host:/var/log/app.log
     """
-    # Convert path to string
-    log_file_path = str(Path(log_file).resolve())
+    # Use log_file directly since it's already validated
+    log_file_path = log_file
 
     # Convert exclude tuple to list
     exclude_patterns = list(exclude) if exclude else []

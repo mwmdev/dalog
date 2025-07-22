@@ -11,13 +11,14 @@
 ## Features
 
 - **Live Search**: Real-time filtering 
+- **SSH Support**: Read remote logs via SSH 
 - **Exclusion System**: Filter out unwanted log entries with persistent patterns and regex
 - **Smart Styling**: Pattern-based syntax highlighting with regex support
-- **Live Reload**: Automatically update when log files change (like `tail -f`)
-- **Visual Mode**: Vi-style visual line selection with clipboard support
+- **Live Reload**: Automatically update when log files change (like `tail -f`) - supports both local and SSH files
+- **Visual Mode**: Visual line selection with clipboard support
 - **HTML Rendering**: Render HTML tags in logs (configurable tags)
-- ** Vim Keybindings**: Full vim-style navigation with customizable keybindings
-- ** Configurable**: Extensive configuration options via TOML files
+- **Vim Keybindings**: Full vim-style navigation with customizable keybindings
+- **Configurable**: Extensive configuration options via TOML files
 - **CLI Exclusions**: Filter logs directly from command line with `--exclude` parameter
 - **Theme Support**: Choose from built-in Textual themes via CLI
 
@@ -51,29 +52,43 @@ pip install -e ".[dev]"
 # View a single log file
 dalog application.log
 
+# View a remote log file via SSH
+dalog user@server:/var/log/application.log
+
 # Start with search pre-filled
 dalog --search ERROR application.log
+
+# Search in remote logs
+dalog --search ERROR user@server:/var/log/app.log
 
 # Exclude unwanted log levels
 dalog --exclude "WARNING" application.log
 
-# Load only last 1000 lines
-dalog --tail 1000 large-application.log
+# Load only last 1000 lines (works with SSH too!)
+dalog --tail 1000 user@server:/var/log/large-application.log
 
 # Use custom configuration
 dalog --config ~/.config/dalog/custom.toml app.log
 
 # Use a specific Textual theme
 dalog --theme gruvbox error.log
+
+# Combine multiple options with SSH
+dalog --search ERROR --exclude DEBUG --tail 500 user@host:/var/log/app.log
 ```
 
 ### CLI Arguments
 
 #### Required Arguments
 
-- **`log_file`** - The path to the log file you want to view
-  - Must be an existing, readable file
-  - Example: `dalog application.log` or `dalog /var/log/app.log`
+- **`log_file`** - The path to the log file you want to view (local or SSH)
+  - Local files: Must be an existing, readable file
+  - SSH format: `user@host:/path/to/log` or `ssh://user@host:port/path/to/log`
+  - Examples: 
+    - `dalog application.log`
+    - `dalog /var/log/app.log`
+    - `dalog user@server:/var/log/nginx/access.log`
+    - `dalog admin@192.168.1.10:2222:/logs/app.log`
 
 #### Optional Arguments
 
@@ -141,6 +156,48 @@ DaLog supports vi-style visual line selection:
 4. Use `j`/`k` to extend the selection up/down
 5. Press `y` to yank (copy) selected lines to clipboard
 6. Press `ESC` to exit visual mode without copying
+
+## SSH Support
+
+DaLog can read log files from remote servers via SSH. This is particularly useful for:
+- Monitoring production logs without logging into servers
+- Viewing logs from multiple servers in separate terminal windows
+- Applying your local dalog configuration to remote logs
+
+### SSH URL Format
+
+```
+user@host:/path/to/log
+user@host:port:/path/to/log
+ssh://user@host:port/path/to/log
+```
+
+### SSH Authentication
+
+DaLog uses your system's SSH configuration:
+- SSH keys from `~/.ssh/`
+- SSH agent for key management
+- SSH config from `~/.ssh/config`
+
+### Live Reload for SSH
+
+Live reload works with SSH files! DaLog will periodically check for changes and automatically update the display when the remote file is modified.
+
+### Examples
+
+```bash
+# View nginx access logs on web server
+dalog webadmin@webserver:/var/log/nginx/access.log
+
+# Monitor application errors with filtering
+dalog --search ERROR --exclude DEBUG deploy@app-server:/home/app/logs/production.log
+
+# Tail last 500 lines from remote syslog
+dalog --tail 500 root@192.168.1.1:/var/log/syslog
+
+# Use custom port
+dalog admin@server:2222:/var/log/custom.log
+```
 
 ## Configuration
 

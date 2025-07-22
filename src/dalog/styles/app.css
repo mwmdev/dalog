@@ -57,8 +57,13 @@ Toast {
     padding: 1 2;
     background: $primary;
     color: $text;
-    border: solid $accent;
     text-align: center;
+}
+
+/* Help toast with left-aligned text */
+Toast.help-toast {
+    text-align: left;
+    width: 60;
 }
 
 /* Scrollbar styling */
@@ -242,7 +247,7 @@ ExclusionModal {
 
 .help-text {
     color: $text-muted;
-    text-align: center;
+    text-align: left;
     margin: 0 0 1 0;
 }
 

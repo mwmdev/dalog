@@ -38,6 +38,7 @@ dependencies = [
     "html2text>=2020.1.16",
     "regex>=2023.12.0",
     "pyperclip>=1.8.0",
+    "paramiko>=3.0.0",
 ]
 
 [project.optional-dependencies]
