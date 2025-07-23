@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dalog"
-version = "0.2.0.dev1"
+version = "0.2.0"
 description = "Your friendly terminal logs viewer"
 authors = [{name = "Mike Wassmer", email = "mikewassmer@protonmail.com"}]
 license = {text = "MIT"}
