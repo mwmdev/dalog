@@ -1,6 +1,6 @@
 # `dalog` - Your friendly terminal logs viewer
 
-![Version](https://img.shields.io/badge/version-0.1.1-blue)
+![Version](https://img.shields.io/badge/version-0.2.0-blue)
 ![Python Version](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
@@ -16,10 +16,8 @@
 - **Smart Styling**: Pattern-based syntax highlighting with regex support
 - **Live Reload**: Automatically update when log files change (like `tail -f`) - supports both local and SSH files
 - **Visual Mode**: Visual line selection with clipboard support
-- **HTML Rendering**: Render HTML tags in logs (configurable tags)
+- **HTML Rendering**: Configurable rendering of HTML tags in logs 
 - **Vim Keybindings**: Full vim-style navigation with customizable keybindings
-- **Configurable**: Extensive configuration options via TOML files
-- **CLI Exclusions**: Filter logs directly from command line with `--exclude` parameter
 - **Theme Support**: Choose from built-in Textual themes via CLI
 
 ## Installation
@@ -148,7 +146,7 @@ dalog --search ERROR --exclude DEBUG --tail 500 user@host:/var/log/app.log
 
 #### Visual Mode
 
-DaLog supports vi-style visual line selection:
+`dalog` supports vi-style visual line selection:
 
 1. Press `V` (or enter a line number and press `V`) to enter visual line mode
 2. Use `j`/`k` to navigate to the desired starting line (cursor shown with underline)
@@ -159,7 +157,7 @@ DaLog supports vi-style visual line selection:
 
 ## SSH Support
 
-DaLog can read log files from remote servers via SSH. This is particularly useful for:
+`dalog` can read log files from remote servers via SSH. This is particularly useful for:
 - Monitoring production logs without logging into servers
 - Viewing logs from multiple servers in separate terminal windows
 - Applying your local dalog configuration to remote logs
@@ -174,14 +172,14 @@ ssh://user@host:port/path/to/log
 
 ### SSH Authentication
 
-DaLog uses your system's SSH configuration:
+`dalog` uses your system's SSH configuration:
 - SSH keys from `~/.ssh/`
 - SSH agent for key management
 - SSH config from `~/.ssh/config`
 
 ### Live Reload for SSH
 
-Live reload works with SSH files! DaLog will periodically check for changes and automatically update the display when the remote file is modified.
+Live reload works with SSH files! `dalog` will periodically check for changes and automatically update the display when the remote file is modified.
 
 ### Examples
 
@@ -201,7 +199,7 @@ dalog admin@server:2222:/var/log/custom.log
 
 ## Configuration
 
-DaLog looks for configuration files in the following order:
+`dalog` looks for configuration files in the following order:
 
 1. Command-line specified: `--config path/to/config.toml`
 2. `$XDG_CONFIG_HOME/dalog/config.toml`
@@ -259,7 +257,7 @@ case_sensitive = false
 
 ## Styling System
 
-DaLog supports powerful regex-based styling patterns:
+`dalog` supports powerful regex-based styling patterns:
 
 ```toml
 [styling.custom]

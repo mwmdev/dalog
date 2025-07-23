@@ -1,0 +1,1 @@
+"""Snapshot testing module for dalog."""

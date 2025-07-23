@@ -1,0 +1,1 @@
+"""Widget testing module for dalog."""

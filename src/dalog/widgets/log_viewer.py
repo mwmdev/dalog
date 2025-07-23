@@ -51,7 +51,6 @@ class LogViewerWidget(RichLog):
     visual_selection_active = reactive(False)  # Whether selection is active
     visual_start_line = reactive(-1)  # Selection start
     visual_end_line = reactive(-1)  # Selection end
-    
 
     def __init__(self, config: DaLogConfig, **kwargs):
         """Initialize the log viewer.
@@ -85,23 +84,28 @@ class LogViewerWidget(RichLog):
             case_sensitive=config.exclusions.case_sensitive,
         )
 
-    
     def debug_scroll_state(self) -> dict:
         """Get debug information about scroll state."""
-        height = getattr(self.size, 'height', 0) if hasattr(self, 'size') else 0
-        current_scroll = getattr(self.scroll_offset, 'y', 0) if hasattr(self, 'scroll_offset') else 0
+        height = getattr(self.size, "height", 0) if hasattr(self, "size") else 0
+        current_scroll = (
+            getattr(self.scroll_offset, "y", 0) if hasattr(self, "scroll_offset") else 0
+        )
         max_scroll = max(0, len(self.displayed_lines) - height) if height > 0 else 0
-        
+
         return {
-            'displayed_lines': len(self.displayed_lines),
-            'total_lines': self.total_lines,
-            'widget_height': height,
-            'current_scroll_y': current_scroll,
-            'max_scroll': max_scroll,
-            'is_at_bottom': current_scroll >= max_scroll - 1 if max_scroll > 0 else True,
+            "displayed_lines": len(self.displayed_lines),
+            "total_lines": self.total_lines,
+            "widget_height": height,
+            "current_scroll_y": current_scroll,
+            "max_scroll": max_scroll,
+            "is_at_bottom": (
+                current_scroll >= max_scroll - 1 if max_scroll > 0 else True
+            ),
         }
 
-    def load_from_processor(self, processor: LogProcessor, scroll_to_end: bool = True) -> None:
+    def load_from_processor(
+        self, processor: LogProcessor, scroll_to_end: bool = True
+    ) -> None:
         """Load lines from a log processor.
 
         Args:
@@ -147,13 +151,17 @@ class LogViewerWidget(RichLog):
 
     def _refresh_display(self, preserve_scroll: bool = True) -> None:
         """Refresh the display based on current filters and search.
-        
+
         Args:
             preserve_scroll: Whether to preserve current scroll position
         """
         # Store current scroll position to preserve view
-        current_scroll_y = self.scroll_offset.y if (preserve_scroll and hasattr(self, 'scroll_offset')) else 0
-        
+        current_scroll_y = (
+            self.scroll_offset.y
+            if (preserve_scroll and hasattr(self, "scroll_offset"))
+            else 0
+        )
+
         self.clear()
         self.displayed_lines.clear()
 
@@ -179,7 +187,7 @@ class LogViewerWidget(RichLog):
 
         self.visible_lines = len(self.displayed_lines)
         self.filtered_lines = self.total_lines - self.visible_lines
-        
+
         # Restore scroll position after refresh if requested and not in visual mode
         if preserve_scroll and not self.visual_mode and current_scroll_y > 0:
             # Temporarily disable auto-scroll to restore position
@@ -254,7 +262,9 @@ class LogViewerWidget(RichLog):
         if self.visual_mode and display_index is not None:
             if self._is_visual_line(display_index):
                 bg_color = self.config.display.visual_mode_bg
-                text.stylize(f"black on {bg_color}", 0, len(text))
+                # Use a more contrasting style to ensure visibility
+                # and ensure it overrides any existing styles
+                text.stylize(f"bold white on {bg_color}", 0, len(text))
 
         return text
 
@@ -330,7 +340,7 @@ class LogViewerWidget(RichLog):
             "visual_mode": self.visual_mode,
             "visual_selection_active": self.visual_selection_active,
             "selected_lines": (
-                self.get_selected_line_count() if self.visual_selection_active else 0
+                self.get_selected_line_count() if self.visual_mode else 0
             ),
             "cursor_line": (
                 self.displayed_lines[self.visual_cursor_line]
@@ -368,10 +378,10 @@ class LogViewerWidget(RichLog):
 
     def line_exists_in_file(self, target_line_number: int) -> bool:
         """Check if a line number exists in the original file (before filtering).
-        
+
         Args:
             target_line_number: The actual line number from the file
-            
+
         Returns:
             True if the line exists in the original file
         """
@@ -380,12 +390,14 @@ class LogViewerWidget(RichLog):
                 return True
         return False
 
-    def find_display_index_for_line_number(self, target_line_number: int) -> Optional[int]:
+    def find_display_index_for_line_number(
+        self, target_line_number: int
+    ) -> Optional[int]:
         """Find the display index for a given actual line number.
-        
+
         Args:
             target_line_number: The actual line number from the file
-            
+
         Returns:
             Index in displayed_lines, or None if line is not visible
         """
@@ -394,13 +406,15 @@ class LogViewerWidget(RichLog):
                 return i
         return None
 
-    def enter_visual_mode(self, line_index: Optional[int] = None, target_line_number: Optional[int] = None) -> Tuple[bool, str]:
+    def enter_visual_mode(
+        self, line_index: Optional[int] = None, target_line_number: Optional[int] = None
+    ) -> Tuple[bool, str]:
         """Enter visual line mode.
 
         Args:
             line_index: Optional starting line index (0-based in displayed_lines). If None, uses current viewport position.
             target_line_number: Optional actual line number from file. Takes precedence over line_index.
-            
+
         Returns:
             Tuple of (success, message) indicating result
         """
@@ -411,14 +425,20 @@ class LogViewerWidget(RichLog):
         if target_line_number is not None:
             # First check if the line exists in the original file
             if not self.line_exists_in_file(target_line_number):
-                return False, f"Line {target_line_number} does not exist in file (max: {len(self.all_lines)})"
-            
+                return (
+                    False,
+                    f"Line {target_line_number} does not exist in file (max: {len(self.all_lines)})",
+                )
+
             # Check if it's visible in current filtered view
             line_index = self.find_display_index_for_line_number(target_line_number)
             if line_index is None:
                 # Line exists but is filtered out
-                return False, f"Line {target_line_number} is hidden by current filters/exclusions"
-        
+                return (
+                    False,
+                    f"Line {target_line_number} is hidden by current filters/exclusions",
+                )
+
         # Use current viewport position if not specified
         if line_index is None:
             line_index = self.get_current_viewport_line()
@@ -432,13 +452,13 @@ class LogViewerWidget(RichLog):
 
             # First ensure the cursor line is visible before refreshing display
             self._ensure_line_visible(line_index)
-            
+
             # Now refresh the display to show visual mode highlighting
             self._refresh_display()
-            
+
             actual_line_num = self.displayed_lines[line_index]
             return True, f"Visual mode at line {actual_line_num}"
-        
+
         return False, "Invalid line index"
 
     def exit_visual_mode(self) -> None:
@@ -482,7 +502,7 @@ class LogViewerWidget(RichLog):
             return
 
         # Get current scroll position and viewport height
-        scroll_y = self.scroll_offset.y if hasattr(self, 'scroll_offset') else 0
+        scroll_y = self.scroll_offset.y if hasattr(self, "scroll_offset") else 0
         visible_height = self.size.height
 
         # Calculate the visible range with some padding
@@ -496,7 +516,7 @@ class LogViewerWidget(RichLog):
             new_scroll_y = max(0, line_index - (visible_height // 2))
             self.scroll_to(0, new_scroll_y)
         elif line_index > visible_end:
-            # Line is below visible area - scroll down to center it  
+            # Line is below visible area - scroll down to center it
             new_scroll_y = max(0, line_index - (visible_height // 2))
             max_scroll = max(0, len(self.displayed_lines) - visible_height)
             new_scroll_y = min(new_scroll_y, max_scroll)
@@ -515,22 +535,26 @@ class LogViewerWidget(RichLog):
 
     def get_selected_line_count(self) -> int:
         """Get the number of selected lines in visual mode."""
-        if not self.visual_mode or not self.visual_selection_active:
+        if not self.visual_mode:
             return 0
-        start, end = self._get_selection_range()
-        return end - start + 1
+        if self.visual_selection_active:
+            start, end = self._get_selection_range()
+            return end - start + 1
+        else:
+            # When in visual mode but no selection active, we have the cursor line
+            return 1
 
     def copy_selected_lines(self) -> bool:
-        """Copy selected lines to clipboard.
+        """Copy selected lines or current line to clipboard.
+
+        In visual mode:
+        - If selection is active, copy the selected range
+        - If no selection is active, copy the current cursor line
 
         Returns:
             True if successful, False otherwise
         """
-        if (
-            not self.visual_mode
-            or not self.visual_selection_active
-            or not self.displayed_lines
-        ):
+        if not self.visual_mode or not self.displayed_lines:
             return False
 
         if not HAS_CLIPBOARD:
@@ -540,14 +564,23 @@ class LogViewerWidget(RichLog):
             )
             return False
 
-        # Get the range of selected lines
-        start, end = self._get_selection_range()
-
-        # Collect the content of selected lines
         selected_content = []
-        for i in range(start, end + 1):
-            if i < len(self.displayed_lines):
-                line_num = self.displayed_lines[i]
+
+        if self.visual_selection_active:
+            # Copy selected range
+            start, end = self._get_selection_range()
+            for i in range(start, end + 1):
+                if i < len(self.displayed_lines):
+                    line_num = self.displayed_lines[i]
+                    # Find the corresponding LogLine
+                    for line in self.all_lines:
+                        if line.line_number == line_num:
+                            selected_content.append(line.content)
+                            break
+        else:
+            # Copy current cursor line
+            if 0 <= self.visual_cursor_line < len(self.displayed_lines):
+                line_num = self.displayed_lines[self.visual_cursor_line]
                 # Find the corresponding LogLine
                 for line in self.all_lines:
                     if line.line_number == line_num:
@@ -566,37 +599,37 @@ class LogViewerWidget(RichLog):
 
     def temporarily_show_line(self, target_line_number: int) -> bool:
         """Temporarily clear filters and search to show a specific line.
-        
+
         Args:
             target_line_number: The line number to make visible
-            
+
         Returns:
             True if line was made visible
         """
         # Check if line exists in file
         if not self.line_exists_in_file(target_line_number):
             return False
-            
+
         # Store current state
         original_search_term = self.search_term
         original_search_active = self.search_active
-        
+
         # Clear search temporarily
         self.search_term = ""
         self.search_active = False
-        
+
         # Store original exclusion patterns
         original_patterns = self.exclusion_manager.patterns.copy()
-        
+
         # Clear exclusions temporarily
         self.exclusion_manager.clear_patterns()
-        
+
         # Refresh display without filters
         self._refresh_display()
-        
+
         # Check if line is now visible
         line_index = self.find_display_index_for_line_number(target_line_number)
-        
+
         if line_index is not None:
             # Success - keep filters cleared and enter visual mode
             return True
@@ -604,14 +637,12 @@ class LogViewerWidget(RichLog):
             # Restore original state if still not visible
             self.search_term = original_search_term
             self.search_active = original_search_active
-            
+
             # Restore exclusions
             for pattern in original_patterns:
                 self.exclusion_manager.add_pattern(
-                    pattern.pattern,
-                    pattern.is_regex,
-                    pattern.case_sensitive
+                    pattern.pattern, pattern.is_regex, pattern.case_sensitive
                 )
-            
+
             self._refresh_display()
             return False

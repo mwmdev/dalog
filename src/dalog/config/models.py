@@ -42,6 +42,30 @@ class KeyBindings(BaseModel):
     scroll_right: str = "l"
     scroll_home: str = "g"
     scroll_end: str = "G"
+    show_help: str = "?"
+
+    # Page scrolling
+    scroll_page_up: str = "ctrl+u"
+    scroll_page_down: str = "ctrl+d"
+
+    # Visual mode
+    enter_visual_mode: str = "V"
+    start_selection: str = "v"
+    yank_lines: str = "y"
+
+    # Footer display configuration
+    display_in_footer: List[str] = Field(
+        default_factory=lambda: [
+            "search",
+            "reload",
+            "toggle_live_reload",
+            "show_exclusions",
+            "toggle_wrap",
+            "quit",
+            "show_help",
+        ],
+        description="List of keybinding actions to display in footer",
+    )
 
 
 class AppConfig(BaseModel):

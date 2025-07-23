@@ -1,0 +1,41 @@
+[keybindings]
+# Custom navigation (vi-style alternative)
+scroll_down = "s"
+scroll_up = "w"
+scroll_left = "a"
+scroll_right = "d"
+scroll_home = "home"
+scroll_end = "end"
+scroll_page_up = "page_up"
+scroll_page_down = "page_down"
+
+# Alternative search
+search = "f"
+show_exclusions = "x"
+
+# File operations
+reload = "F5"
+toggle_live_reload = "F6"
+
+# Display
+toggle_wrap = "t"
+show_help = "F1"
+
+# Visual mode
+enter_visual_mode = "space"
+start_selection = "enter"
+yank_lines = "c"
+
+# General
+quit = "escape"
+
+[display]
+theme = "monokai"
+live_reload = false
+tail_lines = 2000
+show_line_numbers = false
+
+[exclusions]
+patterns = ["INFO", "DEBUG", "TRACE"]
+case_sensitive = true
+use_regex = true

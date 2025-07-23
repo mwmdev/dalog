@@ -1,0 +1,14 @@
+2024-01-20T08:00:00.123Z [INFO] Normal log entry
+[MALFORMED] No timestamp log entry
+2024-INVALID-DATE [ERROR] Invalid timestamp format  
+2024-01-20T08:00:02.345Z [UNKNOWN_LEVEL] Unknown log level
+2024-01-20T08:00:03.456Z [ERROR] Line with
+multiple lines
+continuation
+2024-01-20T08:00:04.567Z [INFO] Entry with null bytes: \x00\x00\x00
+2024-01-20T08:00:05.678Z [] Empty log level brackets  
+2024-01-20T08:00:06.789Z [INFO Very long log entry that exceeds normal line length limits and continues for a very long time to test text wrapping and display handling in various scenarios where the log line is extremely long and might cause display issues or performance problems in the application when rendering such lengthy content that goes on and on without proper line breaks or formatting
+2024-01-20T08:00:07.890Z [ERROR] Binary data: ��������
+NO_TIMESTAMP_AT_ALL This line has no timestamp structure
+	2024-01-20T08:00:08.901Z [INFO] Entry with leading tab character
+    2024-01-20T08:00:09.012Z [DEBUG] Entry with leading spaces

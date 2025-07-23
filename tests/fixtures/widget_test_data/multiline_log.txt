@@ -1,0 +1,43 @@
+2024-01-20T08:00:00.123Z [INFO] Application starting with multiline stack trace
+2024-01-20T08:00:01.234Z [ERROR] Exception occurred:
+    java.lang.NullPointerException: null
+        at com.example.Service.process(Service.java:42)
+        at com.example.Controller.handle(Controller.java:123)
+        at com.example.App.main(App.java:15)
+2024-01-20T08:00:02.345Z [DEBUG] SQL Query:
+    SELECT users.id, users.name, profiles.data
+    FROM users 
+    LEFT JOIN profiles ON users.id = profiles.user_id
+    WHERE users.active = true
+    ORDER BY users.created_at DESC
+    LIMIT 100
+2024-01-20T08:00:03.456Z [INFO] JSON Response:
+    {
+        "status": "success",
+        "data": {
+            "users": [
+                {"id": 1, "name": "John Doe"},
+                {"id": 2, "name": "Jane Smith"}
+            ],
+            "total": 2,
+            "pagination": {
+                "page": 1,
+                "limit": 100,
+                "hasMore": false
+            }
+        }
+    }
+2024-01-20T08:00:04.567Z [WARNING] Configuration validation errors:
+    - Missing required field: 'database.url'
+    - Invalid value for 'cache.ttl': must be positive integer
+    - Deprecated setting 'legacy.mode': use 'compatibility.mode' instead
+2024-01-20T08:00:05.678Z [ERROR] HTTP Request failed:
+    POST /api/v1/users
+    Headers:
+        Content-Type: application/json
+        Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+    Body:
+        {"name": "New User", "email": "user@example.com"}
+    Response: 400 Bad Request
+        {"error": "Validation failed", "details": ["Email already exists"]}
+2024-01-20T08:00:06.789Z [INFO] Processing completed successfully

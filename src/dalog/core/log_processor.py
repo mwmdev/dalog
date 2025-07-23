@@ -6,7 +6,7 @@ import mmap
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterator, List, Optional, Tuple, Dict, Any
+from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 
 @dataclass
@@ -28,7 +28,7 @@ class LogLine:
         if self.original_content is None:
             self.original_content = self.content
         if self.byte_length == 0:
-            self.byte_length = len(self.content.encode('utf-8'))
+            self.byte_length = len(self.content.encode("utf-8"))
 
 
 class LogProcessor:
@@ -40,16 +40,16 @@ class LogProcessor:
         Args:
             file_path: Path to the log file
             tail_lines: Optional number of lines to tail from end
-            
+
         Raises:
             FileNotFoundError: If the log file doesn't exist
         """
         if not file_path.exists():
             raise FileNotFoundError(f"Log file not found: {file_path}")
-            
+
         self.file_path = file_path
         self.tail_lines = tail_lines
-        self.encoding = 'utf-8'
+        self.encoding = "utf-8"
         self._file_size = 0
         self._line_offsets: List[int] = []
         self._total_lines = 0
@@ -93,7 +93,7 @@ class LogProcessor:
         if self._file_handle:
             self._file_handle.close()
             self._file_handle = None
-            
+
         self._is_open = False
 
     def get_file_info(self) -> Dict[str, Any]:
@@ -123,16 +123,16 @@ class LogProcessor:
         if not self._mmap:
             self._total_lines = 0
             return
-            
+
         line_count = 0
         for i in range(len(self._mmap)):
             if self._mmap[i] == ord("\n"):
                 line_count += 1
-                
+
         # Handle case where file doesn't end with newline
         if len(self._mmap) > 0 and self._mmap[-1] != ord("\n"):
             line_count += 1
-            
+
         self._total_lines = line_count
 
     def read_lines(self) -> Iterator[LogLine]:

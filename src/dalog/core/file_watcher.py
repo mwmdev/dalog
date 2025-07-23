@@ -218,28 +218,28 @@ class AsyncFileWatcher:
 
     def add_file(self, file_path: Path) -> None:
         """Add a file to the watch list.
-        
+
         Args:
             file_path: Path to the file to watch
         """
         self._watched_files.add(file_path)
         # Also add to the underlying file watcher if it exists
-        if hasattr(self._file_watcher, 'add_file'):
+        if hasattr(self._file_watcher, "add_file"):
             self._file_watcher.add_file(file_path)
 
     def remove_file(self, file_path: Path) -> bool:
         """Remove a file from the watch list.
-        
+
         Args:
             file_path: Path to the file to stop watching
-            
+
         Returns:
             True if file was removed, False if not found
         """
         if file_path in self._watched_files:
             self._watched_files.remove(file_path)
             # Also remove from underlying file watcher if it exists
-            if hasattr(self._file_watcher, 'remove_file'):
+            if hasattr(self._file_watcher, "remove_file"):
                 self._file_watcher.remove_file(file_path)
             return True
         return False

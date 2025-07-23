@@ -42,7 +42,7 @@ class TestCLI:
             assert "View and search a log file" in result.output
             assert "Examples:" in result.output
     
-    @patch('dalog.cli.DaLogApp')
+    @patch('dalog.cli.create_dalog_app')
     @pytest.mark.parametrize("option_args,expected_attr,expected_value", [
         (['--config', 'test_config.toml'], 'config_path', 'test_config.toml'),
         (['-c', 'test_config.toml'], 'config_path', 'test_config.toml'),
@@ -53,10 +53,12 @@ class TestCLI:
         (['--theme', 'nord'], 'theme', 'nord'),
         (['--theme', 'gruvbox'], 'theme', 'gruvbox'),
     ])
-    def test_single_options(self, mock_app_class, cli_runner, sample_log_file, option_args, expected_attr, expected_value):
+    def test_single_options(self, mock_create_app, cli_runner, sample_log_file, option_args, expected_attr, expected_value):
         """Test individual CLI options."""
         mock_app = Mock()
+        mock_app_class = Mock()
         mock_app_class.return_value = mock_app
+        mock_create_app.return_value = mock_app_class
         
         # Create config file if needed
         config_file = None
@@ -76,16 +78,18 @@ class TestCLI:
             if config_file and config_file.exists():
                 config_file.unlink()
     
-    @patch('dalog.cli.DaLogApp')
+    @patch('dalog.cli.create_dalog_app')
     @pytest.mark.parametrize("tail_value,expected_value", [
         ('100', 100),
         ('0', 0),
         ('-10', -10),  # Negative values should be accepted
     ])
-    def test_tail_option_values(self, mock_app_class, cli_runner, sample_log_file, tail_value, expected_value):
+    def test_tail_option_values(self, mock_create_app, cli_runner, sample_log_file, tail_value, expected_value):
         """Test tail option with different values."""
         mock_app = Mock()
+        mock_app_class = Mock()
         mock_app_class.return_value = mock_app
+        mock_create_app.return_value = mock_app_class
         
         try:
             result = cli_runner.invoke(main, [
@@ -112,11 +116,13 @@ class TestCLI:
         assert result.exit_code != 0
         # Click should handle the path validation
     
-    @patch('dalog.cli.DaLogApp')
-    def test_valid_log_file(self, mock_app_class, cli_runner, sample_log_file):
+    @patch('dalog.cli.create_dalog_app')
+    def test_valid_log_file(self, mock_create_app, cli_runner, sample_log_file):
         """Test CLI with valid log file."""
         mock_app = Mock()
+        mock_app_class = Mock()
         mock_app_class.return_value = mock_app
+        mock_create_app.return_value = mock_app_class
         
         try:
             result = cli_runner.invoke(main, [str(sample_log_file)])
@@ -138,11 +144,13 @@ class TestCLI:
     
     # Individual option tests are now covered by the parametrized test_single_options above
     
-    @patch('dalog.cli.DaLogApp')
-    def test_all_options_combined(self, mock_app_class, cli_runner, sample_log_file):
+    @patch('dalog.cli.create_dalog_app')
+    def test_all_options_combined(self, mock_create_app, cli_runner, sample_log_file):
         """Test CLI with all options combined."""
         mock_app = Mock()
+        mock_app_class = Mock()
         mock_app_class.return_value = mock_app
+        mock_create_app.return_value = mock_app_class
         
         config_file = Path("test_config.toml")
         
@@ -172,12 +180,14 @@ class TestCLI:
     
     # Short option variants are covered by test_single_options parametrized tests
     
-    @patch('dalog.cli.DaLogApp')
-    def test_keyboard_interrupt_handling(self, mock_app_class, cli_runner, sample_log_file):
+    @patch('dalog.cli.create_dalog_app')
+    def test_keyboard_interrupt_handling(self, mock_create_app, cli_runner, sample_log_file):
         """Test handling of KeyboardInterrupt (Ctrl+C)."""
         mock_app = Mock()
         mock_app.run.side_effect = KeyboardInterrupt()
+        mock_app_class = Mock()
         mock_app_class.return_value = mock_app
+        mock_create_app.return_value = mock_app_class
         
         try:
             result = cli_runner.invoke(main, [str(sample_log_file)])
@@ -188,12 +198,14 @@ class TestCLI:
         finally:
             sample_log_file.unlink()
     
-    @patch('dalog.cli.DaLogApp')
-    def test_general_exception_handling(self, mock_app_class, cli_runner, sample_log_file):
+    @patch('dalog.cli.create_dalog_app')
+    def test_general_exception_handling(self, mock_create_app, cli_runner, sample_log_file):
         """Test handling of general exceptions."""
         mock_app = Mock()
         mock_app.run.side_effect = RuntimeError("Something went wrong")
+        mock_app_class = Mock()
         mock_app_class.return_value = mock_app
+        mock_create_app.return_value = mock_app_class
         
         try:
             result = cli_runner.invoke(main, [str(sample_log_file)])
@@ -224,9 +236,11 @@ class TestCLI:
     
     def test_path_resolution(self, cli_runner):
         """Test that log file path is properly resolved."""
-        with patch('dalog.cli.DaLogApp') as mock_app_class:
+        with patch('dalog.cli.create_dalog_app') as mock_create_app:
             mock_app = Mock()
+            mock_app_class = Mock()
             mock_app_class.return_value = mock_app
+            mock_create_app.return_value = mock_app_class
             
             # Create a log file in a subdirectory of current working directory
             temp_dir = Path.cwd() / "temp_test_dir"

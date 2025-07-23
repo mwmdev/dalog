@@ -1,0 +1,41 @@
+[keybindings]
+# Navigation
+scroll_down = "j"
+scroll_up = "k"
+scroll_left = "h"
+scroll_right = "l"
+scroll_home = "g"
+scroll_end = "G"
+scroll_page_up = "ctrl+u"
+scroll_page_down = "ctrl+d"
+
+# Search and filtering
+search = "/"
+show_exclusions = "e"
+
+# File operations
+reload = "r"
+toggle_live_reload = "L"
+
+# Display
+toggle_wrap = "w"
+show_help = "?"
+
+# Visual mode
+enter_visual_mode = "V"
+start_selection = "v"
+yank_lines = "y"
+
+# General
+quit = "q"
+
+[display]
+theme = "gruvbox-dark"
+live_reload = true
+tail_lines = 1000
+show_line_numbers = true
+
+[exclusions]
+patterns = ["DEBUG", "TRACE"]
+case_sensitive = false
+use_regex = false

@@ -1,0 +1,20 @@
+2024-01-20T08:00:00.123Z [INFO] Simple log entry
+2024-01-20T08:00:01.234Z [ERROR] Error code: E001
+2024-01-20T08:00:02.345Z [DEBUG] Variable value: var=123
+2024-01-20T08:00:03.456Z [WARNING] Pattern match: [PATTERN]
+2024-01-20T08:00:04.567Z [INFO] URL: https://example.com/api/v1/users
+2024-01-20T08:00:05.678Z [ERROR] Exception: java.lang.RuntimeException
+2024-01-20T08:00:06.789Z [DEBUG] Method call: process(arg1, arg2)
+2024-01-20T08:00:07.890Z [INFO] Email: user@domain.com
+2024-01-20T08:00:08.901Z [WARNING] File path: /var/log/app.log
+2024-01-20T08:00:09.012Z [ERROR] IP address: 192.168.1.100
+2024-01-20T08:00:10.123Z [DEBUG] UUID: 550e8400-e29b-41d4-a716-446655440000
+2024-01-20T08:00:11.234Z [INFO] Phone: +1-555-123-4567
+2024-01-20T08:00:12.345Z [WARNING] Credit card: ****-****-****-1234
+2024-01-20T08:00:13.456Z [ERROR] SQL: SELECT * FROM users WHERE id = 123
+2024-01-20T08:00:14.567Z [DEBUG] JSON: {"key": "value", "number": 42}
+2024-01-20T08:00:15.678Z [INFO] Special chars: @#$%^&*()
+2024-01-20T08:00:16.789Z [WARNING] Brackets: [test] (group) {block}
+2024-01-20T08:00:17.890Z [ERROR] Regex chars: .*+?^${}[]|()\
+2024-01-20T08:00:18.901Z [DEBUG] Newlines in string: "line1\nline2\nline3"
+2024-01-20T08:00:19.012Z [INFO] Tabs in string: "col1\tcol2\tcol3"

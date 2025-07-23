@@ -1,0 +1,10 @@
+2024-01-20T08:00:00.123Z [INFO] Application démarrage with café ☕
+2024-01-20T08:00:01.234Z [DEBUG] Loading configuration with émojis 🚀
+2024-01-20T08:00:02.345Z [WARNING] Memory usage: 85% in België 🇧🇪
+2024-01-20T08:00:03.456Z [ERROR] Database connection failed: Ошибка подключения
+2024-01-20T08:00:04.567Z [INFO] User login: josé.maría@empresa.com
+2024-01-20T08:00:05.678Z [DEBUG] Processing data: 数据处理完成
+2024-01-20T08:00:06.789Z [WARNING] Invalid character: ñ in field naïve
+2024-01-20T08:00:07.890Z [ERROR] Failed to parse: "測試字串" contains 中文
+2024-01-20T08:00:08.901Z [INFO] Success: Übergabe erfolgreich completed
+2024-01-20T08:00:09.012Z [DEBUG] Arabic text: مرحبا بكم في النظام

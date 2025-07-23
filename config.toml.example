@@ -12,32 +12,34 @@ case_sensitive_search = false
 vim_mode = true
 
 [keybindings]
+# General commands
 search = "/"
 reload = "r"
 toggle_live_reload = "L"
 toggle_wrap = "w"
 quit = "q"
 show_exclusions = "e"
+show_help = "?"
+
+# Navigation
 scroll_down = "j"
 scroll_up = "k"
 scroll_left = "h"
 scroll_right = "l"
 scroll_home = "g"
 scroll_end = "G"
-# Visual mode keybindings (not configurable, shown for reference)
-# toggle_visual_mode = "V"
-# start_selection = "v"
-# yank_lines = "y"
-# Page scrolling (vim-style, not configurable)
-# scroll_page_up = "ctrl+u"
-# scroll_page_down = "ctrl+d"
+scroll_page_up = "ctrl+u"
+scroll_page_down = "ctrl+d"
+
+# Visual mode (vi-style)
+enter_visual_mode = "V"
+start_selection = "v"
+yank_lines = "y"
 
 [display]
 show_line_numbers = true
 wrap_lines = false
 max_line_length = 1000
-# Background color for visual mode selection (vi-style)
-# Options: any valid textual color name (e.g., "white", "yellow", "cyan", "bright_white")
 visual_mode_bg = "white"
 
 [html]

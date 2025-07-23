@@ -43,7 +43,7 @@ class ExclusionPattern:
         # Skip invalid patterns
         if not self.is_valid:
             return False
-            
+
         if self.is_regex and self.compiled:
             return bool(self.compiled.search(text))
         elif not self.is_regex:
@@ -105,13 +105,17 @@ class ExclusionManager:
         """
         # Use instance defaults if not specified
         regex = is_regex if is_regex is not None else self.is_regex
-        case_sens = case_sensitive if case_sensitive is not None else self.case_sensitive
+        case_sens = (
+            case_sensitive if case_sensitive is not None else self.case_sensitive
+        )
 
         # Check for duplicates
         for existing in self._patterns:
-            if (existing.pattern == pattern and 
-                existing.is_regex == regex and 
-                existing.case_sensitive == case_sens):
+            if (
+                existing.pattern == pattern
+                and existing.is_regex == regex
+                and existing.case_sensitive == case_sens
+            ):
                 return False  # Don't add duplicates
 
         exclusion_pattern = ExclusionPattern(
@@ -156,7 +160,7 @@ class ExclusionManager:
             # Skip invalid patterns
             if not pattern.is_valid:
                 continue
-                
+
             if pattern.is_regex:
                 # For regex patterns, only match if compiled successfully
                 if pattern.compiled:
@@ -176,7 +180,9 @@ class ExclusionManager:
                         return True
         return False
 
-    def filter_lines(self, lines: Union[List[str], Generator[str, None, None]]) -> List[str]:
+    def filter_lines(
+        self, lines: Union[List[str], Generator[str, None, None]]
+    ) -> List[str]:
         """Filter out excluded lines.
 
         Args:

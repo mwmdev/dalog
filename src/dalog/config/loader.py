@@ -192,9 +192,35 @@ class ConfigLoader:
 
         # Validate keybindings
         if config.keybindings:
-            for name, key in config.keybindings.model_dump().items():
-                if not key or len(key) == 0:
+            keybindings_dict = config.keybindings.model_dump()
+
+            # Check for empty keybindings (skip non-string fields like display_in_footer)
+            for name, value in keybindings_dict.items():
+                if name == "display_in_footer":  # Skip the list field
+                    continue
+                if isinstance(value, str) and (not value or len(value) == 0):
                     errors.append(f"Keybinding '{name}' cannot be empty")
+
+            # Check for keybinding conflicts (same key assigned to multiple actions)
+            key_to_actions = {}
+            for name, value in keybindings_dict.items():
+                if name == "display_in_footer":  # Skip the list field
+                    continue
+                if isinstance(value, str) and value and len(value) > 0:
+                    if value in key_to_actions:
+                        key_to_actions[value].append(name)
+                    else:
+                        key_to_actions[value] = [name]
+
+            # Report conflicts (except for some special cases like ctrl+c)
+            for key, actions in key_to_actions.items():
+                if len(actions) > 1:
+                    # Allow certain keys to be shared (like escape, ctrl+c)
+                    if key not in ["escape", "ctrl+c"]:
+                        actions_str = "', '".join(actions)
+                        errors.append(
+                            f"Keybinding conflict: '{key}' assigned to '{actions_str}'"
+                        )
 
         # Validate styling patterns
         if config.styling:

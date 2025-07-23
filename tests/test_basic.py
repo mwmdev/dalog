@@ -13,7 +13,7 @@ def test_package_functionality():
     # Test main package imports and attributes
     import dalog
     assert hasattr(dalog, '__version__')
-    assert hasattr(dalog, 'DaLogApp')
+    assert hasattr(dalog, 'create_dalog_app')
     assert isinstance(dalog.__version__, str)
     assert len(dalog.__version__) > 0
     
@@ -58,7 +58,7 @@ def test_package_functionality():
 
 def test_app_instantiation():
     """Test that the main DaLogApp can be instantiated with a real file."""
-    from dalog.app import DaLogApp
+    from dalog.app import create_dalog_app
     
     # Create a temporary log file
     with tempfile.NamedTemporaryFile(mode='w', suffix='.log', delete=False) as f:
@@ -68,6 +68,7 @@ def test_app_instantiation():
     
     try:
         # Should be able to create app instance
+        DaLogApp = create_dalog_app()
         app = DaLogApp(log_file=str(temp_path))
         assert app is not None
         assert hasattr(app, 'run')

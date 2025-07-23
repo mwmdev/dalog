@@ -15,7 +15,7 @@ except Exception:
 __author__ = "Mike Wassmer"
 __email__ = "mikewassmer@protonmail.com"
 
-# Export main application class for easier imports
-from .app import DaLogApp
+# Export main application class and factory for easier imports
+from .app import create_dalog_app
 
-__all__ = ["DaLogApp", "__version__"]
+__all__ = ["create_dalog_app", "__version__"]

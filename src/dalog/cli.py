@@ -10,7 +10,7 @@ from typing import List, Optional, Tuple
 import click
 
 from . import __version__
-from .app import DaLogApp
+from .app import create_dalog_app
 
 
 def print_version(ctx, param, value):
@@ -24,18 +24,18 @@ def print_version(ctx, param, value):
 def validate_log_source(ctx, param, value):
     """Validate log source (local file or SSH URL)."""
     from .core.remote_reader import is_ssh_url
-    
+
     if is_ssh_url(value):
         # It's an SSH URL, no need to check if file exists locally
         return value
-    
+
     # It's a local file, check if it exists
     path = Path(value)
     if not path.exists():
         raise click.BadParameter(f"File not found: {value}")
     if not path.is_file():
         raise click.BadParameter(f"Not a file: {value}")
-    
+
     return str(path.resolve())
 
 
@@ -122,6 +122,10 @@ def main(
 
     # Create and run the application
     try:
+        # Create the app class with dynamic bindings
+        DaLogApp = create_dalog_app(config)
+
+        # Create app instance
         app = DaLogApp(
             log_file=log_file_path,
             config_path=config,

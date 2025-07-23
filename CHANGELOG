@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.2.0] - 2025-07-23
+
+### Added
+- SSH support for remote log file reading - major new feature!
+- Support for `user@host:/path` and `ssh://user@host:port/path` URL formats
+- Live reload functionality for SSH files with periodic polling
+- JSON highlighting for better log readability
+
+### Fixed
+- Test suite import issues and asyncio configuration
+- Visual mode highlighting and yank behavior improvements
+- Keybinding management with factory function pattern
+- Various visual mode stability improvements
+
+### Changed
+- Updated default theme for better readability
+- Improved .gitignore to include development files
+
 ## [0.1.2] - 2025-06-17
 
 ### Fixed
