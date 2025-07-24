@@ -14,7 +14,7 @@ class TestExclusionManager:
         
         assert manager.patterns == []
         assert manager.is_regex is True  # Default
-        assert manager.case_sensitive is False  # Default
+        # case_sensitive removed - always case sensitive now
         assert manager.get_excluded_count() == 0
     
     def test_init_with_patterns(self):
@@ -23,12 +23,10 @@ class TestExclusionManager:
         manager = ExclusionManager(
             patterns=patterns,
             is_regex=False,
-            case_sensitive=True
         )
         
         assert manager.patterns == patterns
         assert manager.is_regex is False
-        assert manager.case_sensitive is True
     
     def test_add_pattern(self):
         """Test adding exclusion patterns."""
@@ -75,20 +73,12 @@ class TestExclusionManager:
         assert len(manager.patterns) == 1
         assert "DEBUG:" in manager.patterns
     
-    def test_clear_patterns(self):
-        """Test clearing all patterns."""
-        manager = ExclusionManager(patterns=["DEBUG:", "TRACE:", "INFO:"])
-        
-        manager.clear_patterns()
-        assert len(manager.patterns) == 0
-        assert manager.get_excluded_count() == 0
     
     def test_should_exclude_exact_match(self):
         """Test exclusion with exact string matching."""
         manager = ExclusionManager(
             patterns=["DEBUG:", "TRACE:"],
             is_regex=False,
-            case_sensitive=True
         )
         
         # Should exclude lines containing patterns
@@ -99,26 +89,28 @@ class TestExclusionManager:
         assert not manager.should_exclude("2024-01-15 INFO: Application started")
         assert not manager.should_exclude("2024-01-15 ERROR: Connection failed")
     
-    def test_should_exclude_case_insensitive(self):
-        """Test case insensitive exclusion."""
+    def test_should_exclude_case_sensitivity_behavior(self):
+        """Test that exclusions are now always case sensitive."""
         manager = ExclusionManager(
             patterns=["debug:", "trace:"],
             is_regex=False,
-            case_sensitive=False
         )
         
-        # Should exclude regardless of case
-        assert manager.should_exclude("DEBUG: Loading config")
+        # Should exclude exact case matches
+        assert manager.should_exclude("debug: Loading config")
         assert manager.should_exclude("debug: loading config")
-        assert manager.should_exclude("Debug: Loading Config")
-        assert manager.should_exclude("TRACE: Function called")
+        assert manager.should_exclude("trace: Function called")
+        
+        # Should NOT exclude different case (now always case sensitive)
+        assert not manager.should_exclude("DEBUG: Loading config")
+        assert not manager.should_exclude("Debug: Loading Config")
+        assert not manager.should_exclude("TRACE: Function called")
     
     def test_should_exclude_case_sensitive(self):
         """Test case sensitive exclusion."""
         manager = ExclusionManager(
             patterns=["DEBUG:"],
             is_regex=False,
-            case_sensitive=True
         )
         
         # Should only exclude exact case matches
@@ -131,13 +123,16 @@ class TestExclusionManager:
         manager = ExclusionManager(
             patterns=[r"\bDEBUG\b", r"healthcheck.*"],
             is_regex=True,
-            case_sensitive=False
         )
         
         # Should exclude based on regex
         assert manager.should_exclude("DEBUG message here")
         assert manager.should_exclude("healthcheck endpoint called")
         assert manager.should_exclude("healthcheck-status: OK")
+        
+        # Should not exclude different case (now case sensitive)
+        assert not manager.should_exclude("debug message here")
+        assert not manager.should_exclude("HEALTHCHECK endpoint called")
         
         # Should not exclude partial matches without word boundaries
         assert not manager.should_exclude("DEBUGGING mode enabled")  # No word boundary
@@ -281,7 +276,6 @@ class TestExclusionManager:
         manager = ExclusionManager(
             patterns=["🚨", "ERROR", "Tëst"],
             is_regex=False,
-            case_sensitive=False
         )
         
         # Should handle Unicode properly
@@ -316,3 +310,19 @@ class TestExclusionManager:
         )
         
         assert manager.should_exclude(test_line) == should_exclude 
+    
+    def test_init_with_patterns_preserves_settings(self):
+        """Test that initialization with patterns preserves is_regex settings."""
+        patterns = ["DEBUG:", "TRACE:", "healthcheck"]
+        
+        # Test with regex=False (always case sensitive now)
+        manager = ExclusionManager(patterns=patterns, is_regex=False)
+        assert len(manager._patterns) == 3
+        for pattern in manager._patterns:
+            assert pattern.is_regex == False
+            
+        # Test with regex=True
+        manager2 = ExclusionManager(patterns=patterns, is_regex=True)
+        assert len(manager2._patterns) == 3
+        for pattern in manager2._patterns:
+            assert pattern.is_regex == True

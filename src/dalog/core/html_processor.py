@@ -174,7 +174,19 @@ class HTMLProcessor:
 
         # Preserve any existing styles from the original text
         # by merging them with HTML styles
-        for start, end, style in text._spans:
-            styled_text.stylize(style, start, end)
+        try:
+            # Try to use the public API first
+            if hasattr(text, 'spans'):
+                for span in text.spans:
+                    if span.style:
+                        styled_text.stylize(span.style, span.start, span.end)
+            elif hasattr(text, '_spans'):
+                # Fallback to private API for older versions
+                for start, end, style in text._spans:
+                    if style:
+                        styled_text.stylize(style, start, end)
+        except (AttributeError, TypeError):
+            # If span access fails, just return the styled text without merging
+            pass
 
         return styled_text

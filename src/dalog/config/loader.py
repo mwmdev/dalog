@@ -236,11 +236,24 @@ class ConfigLoader:
                     else:
                         key_to_actions[value] = [name]
 
-            # Report conflicts (except for some special cases like ctrl+c)
+            # Report conflicts (except for some special cases)
             for key, actions in key_to_actions.items():
                 if len(actions) > 1:
-                    # Allow certain keys to be shared (like escape, ctrl+c)
-                    if key not in ["escape", "ctrl+c"]:
+                    # Build list of keys that can be shared across different UI contexts
+                    allowed_shared_keys = ["escape", "ctrl+c"]  # Always allowed
+                    
+                    # Add configured navigation keys that are used in both main app and exclusion modal
+                    kb = config.keybindings
+                    allowed_shared_keys.extend([
+                        kb.scroll_up, kb.scroll_down, kb.scroll_left, kb.scroll_right,  # Main navigation
+                        kb.exclusion_list_up, kb.exclusion_list_down, kb.exclusion_delete,  # Exclusion modal
+                        kb.scroll_page_down,  # May conflict with exclusion_delete
+                    ])
+                    
+                    # Remove duplicates
+                    allowed_shared_keys = list(set(allowed_shared_keys))
+                    
+                    if key not in allowed_shared_keys:
                         actions_str = "', '".join(actions)
                         errors.append(
                             f"Keybinding conflict: '{key}' assigned to '{actions_str}'"

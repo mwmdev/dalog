@@ -95,7 +95,25 @@ class HelpScreen(ModalScreen):
 
             yield visual_table
 
-            yield Static("Press any key to close", classes="help-footer")
+            # Exclusions modal section
+            yield Static("▸ Exclusions Modal", classes="section-header")
+            exclusions_table = DataTable(
+                show_header=False, cursor_type="none", zebra_stripes=False
+            )
+            exclusions_table.add_column("Key", width=12)
+            exclusions_table.add_column("Action", width=40)
+
+            exclusions_table.add_row("Enter", "Add pattern")
+            exclusions_table.add_row("Tab", "Navigate between fields")
+            exclusions_table.add_row(
+                f"{kb.exclusion_list_up}/{kb.exclusion_list_down}", 
+                "Navigate pattern list"
+            )
+            exclusions_table.add_row(kb.exclusion_delete, "Delete selected pattern")
+            exclusions_table.add_row("Checkbox", "Toggle regex mode")
+            exclusions_table.add_row("Esc", "Close modal")
+
+            yield exclusions_table
 
     def on_mount(self) -> None:
         """Focus first table on mount."""
@@ -689,7 +707,7 @@ def create_dalog_app(config_path: Optional[str] = None):
                     self.notify(f"Excluding {excluded_count} lines", timeout=2)
 
             # Show the exclusion modal
-            modal = ExclusionModal(self.log_viewer.exclusion_manager)
+            modal = ExclusionModal(self.log_viewer.exclusion_manager, self.config)
             await self.push_screen(modal, handle_exclusion_modal)
 
         # Vim-style navigation

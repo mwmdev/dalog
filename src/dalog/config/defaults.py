@@ -35,6 +35,10 @@ def get_default_config() -> DaLogConfig:
             scroll_right="l",
             scroll_home="g",
             scroll_end="G",
+            # Exclusion modal navigation
+            exclusion_list_up="k",
+            exclusion_list_down="j",
+            exclusion_delete="ctrl+d",
         ),
         display=DisplayConfig(
             show_line_numbers=True,
@@ -202,7 +206,7 @@ def get_default_config() -> DaLogConfig:
             enabled_tags=["b", "i", "em", "strong", "span", "code", "a"],
             strip_unknown_tags=True,
         ),
-        exclusions=ExclusionConfig(patterns=[], regex=True, case_sensitive=False),
+        exclusions=ExclusionConfig(patterns=[], regex=True),
     )
 
 

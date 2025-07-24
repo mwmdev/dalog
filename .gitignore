@@ -155,3 +155,6 @@ CLAUDE.md
 
 # Kitty
 kitty.conf
+
+# Other
+update_coverage_badge.sh

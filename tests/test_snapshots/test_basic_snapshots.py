@@ -220,14 +220,16 @@ class TestModalSnapshots:
 from textual.app import App, ComposeResult
 from dalog.widgets.exclusion_modal import ExclusionModal
 from dalog.core.exclusions import ExclusionManager
+from dalog.config.models import DaLogConfig, KeyBindings
 from unittest.mock import Mock
 
 class TestExclusionModalApp(App):
     def compose(self) -> ComposeResult:
         exclusion_manager = Mock(spec=ExclusionManager)
         exclusion_manager.patterns = ["ERROR", "DEBUG", "test.*pattern"]
+        config = DaLogConfig(keybindings=KeyBindings())
         
-        yield ExclusionModal(exclusion_manager=exclusion_manager)
+        yield ExclusionModal(exclusion_manager=exclusion_manager, config=config)
 
 if __name__ == "__main__":
     app = TestExclusionModalApp()

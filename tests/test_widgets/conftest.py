@@ -106,7 +106,6 @@ def mock_exclusion_manager():
     manager.patterns = []
     manager.add_pattern = Mock()
     manager.remove_pattern = Mock(return_value=True)
-    manager.clear_patterns = Mock()
     manager.get_patterns_list.return_value = []
     manager.validate_pattern.return_value = (True, None)  # (is_valid, error_message)
     return manager

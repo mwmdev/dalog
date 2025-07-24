@@ -177,94 +177,79 @@ Input:focus {
     color: $success;
 }
 
-/* Exclusion Modal styles */
+/* Exclusion Modal styles - matching HelpScreen design */
 ExclusionModal {
     align: center middle;
+    background: rgba(0, 0, 0, 0.7);
 }
 
-#exclusion-container {
-    width: 80;
-    height: 42;
-    background: $surface;
-    border: blank $primary;
-    padding: 0;
+ExclusionModal > Container {
+    width: 60;
+    height: auto;
+    max-height: 90%;
+    background: rgba(40, 40, 40, 0.95);
+    border: solid $accent;
+    padding: 1 2;
 }
 
-#exclusion-header {
-    height: 1;
-    background: $primary;
-    color: $text;
-    padding: 0;
+ExclusionModal Label {
+    width: 100%;
     text-align: center;
+    background: transparent;
+    color: $accent;
     text-style: bold;
+    margin-bottom: 1;
 }
 
 #pattern-input {
-    width: 1fr;
-    margin: 0 1 0 0;
+    width: 100%;
+    margin-bottom: 1;
 }
 
-.input-row {
-    height: 3;
-    margin: 1 0;
+.checkbox-row {
+    height: auto;
+    margin-bottom: 1;
     layout: horizontal;
+    align: right middle;
 }
 
-.input-row > Checkbox {
+.checkbox-row > Checkbox {
     width: auto;
-    margin: 0 1;
+    margin: 0;
+    background: transparent;
+    border: none;
 }
 
 #pattern-list {
     height: 10;
+    border: solid $accent;
+    margin-bottom: 1;
+    background: transparent;
+}
+
+#pattern-list:focus {
     border: solid $primary;
-    margin: 0;
-    background: $surface;
 }
 
-#pattern-list > ListItem {
+#pattern-list > .option-list--option {
     padding: 0 1;
+    background: transparent;
+    text-align: left;
 }
 
-#pattern-list:focus > .list-item--highlight {
+#pattern-list > .option-list--option-highlighted {
+    background: $accent 50%;
+}
+
+#pattern-list:focus > .option-list--option-highlighted {
     background: $accent;
 }
 
-.pattern-item {
-    padding: 0 1;
-    height: 3;
-}
-
-.pattern-item:hover {
-    background: $primary-lighten-2;
-}
-
-.pattern-stats {
-    color: $text-muted;
-    text-align: right;
-}
-
-#button-container {
-    height: 3;
-    margin: 1 0;
-    align: center middle;
-    layout: horizontal;
-}
-
-#button-container > Button {
-    margin: 0 1;
-}
-
 #validation-message {
-    height: 2;
+    height: auto;
     color: $error;
     text-align: center;
-}
-
-.help-text {
-    color: $text-muted;
-    text-align: left;
-    margin: 0 0 1 0;
+    background: transparent;
 }
 
 /* Visual mode styles */

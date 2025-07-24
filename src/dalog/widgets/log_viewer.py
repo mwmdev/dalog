@@ -77,11 +77,10 @@ class LogViewerWidget(RichLog):
         # Initialize HTML processor
         self.html_processor = HTMLProcessor(config.html)
 
-        # Initialize exclusion manager - this should be passed in or shared
+        # Initialize exclusion manager
         self.exclusion_manager = ExclusionManager(
             patterns=config.exclusions.patterns,
             is_regex=config.exclusions.regex,
-            case_sensitive=config.exclusions.case_sensitive,
         )
 
     def debug_scroll_state(self) -> dict:
@@ -250,8 +249,20 @@ class LogViewerWidget(RichLog):
 
         # Merge pattern styles with HTML styles
         # Pattern styles take precedence over HTML styles
-        for start, end, style in pattern_text._spans:
-            text.stylize(style, start, end)
+        try:
+            # Try to use the public API first
+            if hasattr(pattern_text, 'spans'):
+                for span in pattern_text.spans:
+                    if span.style:
+                        text.stylize(span.style, span.start, span.end)
+            elif hasattr(pattern_text, '_spans'):
+                # Fallback to private API for older versions
+                for start, end, style in pattern_text._spans:
+                    if style:
+                        text.stylize(style, start, end)
+        except (AttributeError, TypeError):
+            # If span access fails, skip merging pattern styles
+            pass
 
         # Add line number if configured
         if self.config.display.show_line_numbers:

@@ -11,11 +11,11 @@ class TestExclusionModalBehavior:
     """Test modal opening, closing, and lifecycle."""
 
     @pytest.fixture
-    def modal_app(self, mock_exclusion_manager):
+    def modal_app(self, mock_exclusion_manager, mock_config):
         """Create test app with ExclusionModal."""
         class ModalTestApp(App):
             def compose(self):
-                yield ExclusionModal(exclusion_manager=mock_exclusion_manager)
+                yield ExclusionModal(exclusion_manager=mock_exclusion_manager, config=mock_config)
         return ModalTestApp()
 
     async def test_modal_initialization(self, modal_app):
@@ -63,11 +63,11 @@ class TestExclusionPatternManagement:
     """Test pattern addition, removal, and validation."""
 
     @pytest.fixture
-    def modal_app(self, mock_exclusion_manager):
+    def modal_app(self, mock_exclusion_manager, mock_config):
         """Create test app with ExclusionModal."""
         class ModalTestApp(App):
             def compose(self):
-                yield ExclusionModal(exclusion_manager=mock_exclusion_manager)
+                yield ExclusionModal(exclusion_manager=mock_exclusion_manager, config=mock_config)
         return ModalTestApp()
 
     async def test_add_literal_pattern(self, modal_app):
@@ -80,7 +80,7 @@ class TestExclusionPatternManagement:
             pattern_input.value = "ERROR"
             await pilot.pause()
             
-            # Simulate adding pattern (would normally be via button click)
+            # Simulate adding pattern (normally via Enter key)
             modal._add_pattern()
             await pilot.pause()
             
@@ -159,44 +159,30 @@ class TestExclusionPatternManagement:
             # Should not have called remove_pattern when nothing is selected
             modal.exclusion_manager.remove_pattern.assert_not_called()
 
-    async def test_clear_all_patterns(self, modal_app):
-        """Test clearing all exclusion patterns."""
-        async with modal_app.run_test() as pilot:
-            modal = pilot.app.query_one(ExclusionModal)
-            
-            # Mock having patterns
-            modal.exclusion_manager.patterns = ["ERROR", "DEBUG", "WARNING"]
-            
-            # Clear all patterns
-            modal._clear_all()
-            await pilot.pause()
-            
-            # Should have called clear_patterns
-            modal.exclusion_manager.clear_patterns.assert_called()
 
-    async def test_case_sensitivity_toggle(self, modal_app):
-        """Test case sensitivity checkbox behavior."""
+    async def test_regex_toggle_only(self, modal_app):
+        """Test regex checkbox behavior (case sensitivity removed)."""
         async with modal_app.run_test() as pilot:
             modal = pilot.app.query_one(ExclusionModal)
-            case_checkbox = modal.query_one("#case-checkbox")
+            regex_checkbox = modal.query_one("#regex-checkbox")
             
-            # Toggle case sensitivity
-            initial_value = case_checkbox.value
-            case_checkbox.value = not initial_value
+            # Toggle regex setting
+            initial_value = regex_checkbox.value
+            regex_checkbox.value = not initial_value
             await pilot.pause()
             
-            assert case_checkbox.value != initial_value
+            assert regex_checkbox.value != initial_value
 
 
 class TestExclusionModalUI:
     """Test UI interactions and state management."""
 
     @pytest.fixture
-    def modal_app(self, mock_exclusion_manager):
+    def modal_app(self, mock_exclusion_manager, mock_config):
         """Create test app with ExclusionModal."""
         class ModalTestApp(App):
             def compose(self):
-                yield ExclusionModal(exclusion_manager=mock_exclusion_manager)
+                yield ExclusionModal(exclusion_manager=mock_exclusion_manager, config=mock_config)
         return ModalTestApp()
 
     async def test_pattern_input_validation(self, modal_app):
@@ -245,22 +231,14 @@ class TestExclusionModalUI:
             # Test selection capability
             assert pattern_list.can_focus
 
-    async def test_button_interactions(self, modal_app):
-        """Test all button click behaviors."""
+    async def test_keyboard_only_interface(self, modal_app):
+        """Test that modal works with keyboard shortcuts only (no buttons)."""
         async with modal_app.run_test() as pilot:
             modal = pilot.app.query_one(ExclusionModal)
             
-            # Find buttons
-            add_button = modal.query_one("#add-button")
-            delete_button = modal.query_one("#delete-button") 
-            clear_button = modal.query_one("#clear-button")
-            close_button = modal.query_one("#close-button")
-            
-            # All buttons should exist
-            assert add_button is not None
-            assert delete_button is not None
-            assert clear_button is not None
-            assert close_button is not None
+            # Should have no buttons in the new design
+            buttons = modal.query("Button")
+            assert len(buttons) == 0
 
     async def test_keyboard_shortcuts(self, modal_app):
         """Test keyboard shortcuts in modal."""
@@ -293,18 +271,15 @@ class TestExclusionModalUI:
             modal = pilot.app.query_one(ExclusionModal)
             pattern_input = modal.query_one("#pattern-input")
             regex_checkbox = modal.query_one("#regex-checkbox")
-            case_checkbox = modal.query_one("#case-checkbox")
             
             # Set initial state
             pattern_input.value = "test"
             regex_checkbox.value = True
-            case_checkbox.value = False
             await pilot.pause()
             
             # Verify state is maintained
             assert pattern_input.value == "test"
             assert regex_checkbox.value is True
-            assert case_checkbox.value is False
 
 
 class TestExclusionModalIntegration:

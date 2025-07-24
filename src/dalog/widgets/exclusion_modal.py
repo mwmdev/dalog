@@ -10,31 +10,40 @@ from textual.binding import Binding
 from textual.containers import Container, Horizontal, Vertical
 from textual.reactive import reactive
 from textual.screen import ModalScreen
-from textual.widgets import Checkbox, Input, Label, ListItem, ListView, Static
-from textual.events import Focus
+from textual.widgets import Checkbox, Input, Label, OptionList, Static
+from textual.widgets.option_list import Option
 
 from ..core.exclusions import ExclusionManager
+from ..config.models import DaLogConfig
 
 
 class ExclusionModal(ModalScreen):
     """Modal screen for managing exclusion patterns."""
 
-    BINDINGS = [
-        Binding("escape", "cancel", "Cancel"),
-        Binding("ctrl+d", "delete", "Delete Selected"),
-        Binding("enter", "add", "Add Pattern"),
-    ]
-
-    def __init__(self, exclusion_manager: ExclusionManager, **kwargs):
+    def __init__(self, exclusion_manager: ExclusionManager, config: DaLogConfig, **kwargs):
         """Initialize the exclusion modal.
 
         Args:
             exclusion_manager: The exclusion manager instance
+            config: Application configuration with keybindings
         """
         super().__init__(**kwargs)
         self.exclusion_manager = exclusion_manager
+        self.config = config
         self.selected_pattern: Optional[str] = None
         self.validation_message = reactive("")
+
+    BINDINGS = [
+        Binding("escape", "cancel", "Cancel"),
+        Binding("enter", "add", "Add Pattern"),
+    ]
+
+    def get_bindings(self):
+        """Get dynamic bindings including configurable ones."""
+        bindings = list(self.BINDINGS)
+        # Add the configurable delete binding
+        bindings.append(Binding(self.config.keybindings.exclusion_delete, "delete", "Delete Selected"))
+        return bindings
 
     def compose(self) -> ComposeResult:
         """Compose the modal layout."""
@@ -52,58 +61,52 @@ class ExclusionModal(ModalScreen):
             # Validation message
             yield Static("", id="validation-message")
 
-            # Pattern list (enable focus for tab navigation)
-            # Create a focusable ListView with a fixed height
-            yield ListView(id="pattern-list")
+            # Pattern list with built-in keyboard navigation
+            yield OptionList(id="pattern-list")
 
     def on_mount(self) -> None:
         """Called when modal is mounted."""
         self._refresh_pattern_list()
-        
-        # Ensure ListView is focusable after mount
-        pattern_list = self.query_one("#pattern-list", ListView)
-        pattern_list.can_focus = True
         
         # Set initial focus to the input field
         self.query_one("#pattern-input", Input).focus()
 
     def _refresh_pattern_list(self) -> None:
         """Refresh the pattern list display."""
-        list_view = self.query_one("#pattern-list", ListView)
-        list_view.clear()
+        option_list = self.query_one("#pattern-list", OptionList)
+        option_list.clear_options()
 
         patterns = self.exclusion_manager.get_patterns_list()
-        for i, pattern_info in enumerate(patterns):
+        for pattern_info in patterns:
             pattern = pattern_info["pattern"]
             count = pattern_info["excluded_count"]
             is_regex = pattern_info["is_regex"]
 
-            # Build pattern display
+            # Build rich text display
             text = Text()
             text.append(pattern, style="bold")
 
             # Add flags
-            flags = []
             if is_regex:
-                flags.append("regex")
-            if flags:
-                text.append(f" [{', '.join(flags)}]", style="dim")
+                text.append(" [regex]", style="dim")
 
             # Add exclusion count
             if count > 0:
                 text.append(f" ({count} excluded)", style="yellow")
 
-            # Wrap the Text object in a Label widget
-            list_item = ListItem(Label(text))
-            list_item.data = pattern  # type: ignore  # Store pattern for later reference
-            list_item.can_focus = True  # Ensure ListItems are focusable
-            list_view.append(list_item)
+            # Add option with pattern as ID for easy retrieval
+            option_list.add_option(Option(text, id=pattern))
 
 
-    def on_list_view_selected(self, event: ListView.Selected) -> None:
-        """Handle pattern selection."""
-        if event.item and hasattr(event.item, "data"):
-            self.selected_pattern = event.item.data
+    def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
+        """Handle pattern selection for deletion."""
+        if event.option.id:
+            self.selected_pattern = event.option.id
+    
+    def on_option_list_option_highlighted(self, event: OptionList.OptionHighlighted) -> None:
+        """Update selected pattern when highlighted changes."""
+        if event.option and event.option.id:
+            self.selected_pattern = event.option.id
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         """Handle Enter key in input."""
@@ -145,13 +148,11 @@ class ExclusionModal(ModalScreen):
 
     def _delete_selected(self) -> None:
         """Delete the selected pattern."""
-        list_view = self.query_one("#pattern-list", ListView)
-
-        if list_view.highlighted_child and hasattr(list_view.highlighted_child, "data"):
-            pattern = list_view.highlighted_child.data
-            if self.exclusion_manager.remove_pattern(pattern):
+        if self.selected_pattern:
+            if self.exclusion_manager.remove_pattern(self.selected_pattern):
                 self._refresh_pattern_list()
-                self.notify(f"Removed pattern: {pattern}", timeout=2)
+                self.notify(f"Removed pattern: {self.selected_pattern}", timeout=2)
+                self.selected_pattern = None
 
 
     def _show_validation_error(self, message: str) -> None:
@@ -176,13 +177,20 @@ class ExclusionModal(ModalScreen):
         """Add pattern."""
         self._add_pattern()
 
-    def on_focus(self, event: Focus) -> None:
-        """Handle focus events."""
-        # Check if the focused widget is our pattern list
-        if event.widget.id == "pattern-list":
-            pattern_list = self.query_one("#pattern-list", ListView)
-            if pattern_list.children:
-                # Focus the first ListItem
-                first_item = pattern_list.children[0]
-                if isinstance(first_item, ListItem):
-                    first_item.focus()
+    async def on_key(self, event) -> None:
+        """Handle configurable navigation and delete keys for the OptionList."""
+        # Check if the OptionList is focused
+        option_list = self.query_one("#pattern-list", OptionList)
+        if self.app.focused == option_list:
+            # Handle configurable navigation keys
+            if event.key == self.config.keybindings.exclusion_list_up:
+                option_list.action_cursor_up()
+                event.prevent_default()
+            elif event.key == self.config.keybindings.exclusion_list_down:
+                option_list.action_cursor_down()
+                event.prevent_default()
+            # Handle configurable delete key
+            elif event.key == self.config.keybindings.exclusion_delete:
+                self._delete_selected()
+                event.prevent_default()
+

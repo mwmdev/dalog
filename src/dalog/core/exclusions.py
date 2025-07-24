@@ -6,7 +6,7 @@ import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Generator, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, Generator, List, Optional, Set, Tuple, Union
 
 
 @dataclass
@@ -15,7 +15,6 @@ class ExclusionPattern:
 
     pattern: str
     is_regex: bool
-    case_sensitive: bool
     compiled: Optional[re.Pattern] = None
     is_valid: bool = True  # Track if pattern is valid
 
@@ -30,8 +29,8 @@ class ExclusionPattern:
                     secure_compile,
                 )
 
-                flags = 0 if self.case_sensitive else re.IGNORECASE
-                self.compiled = secure_compile(self.pattern, flags)
+                # Always case sensitive
+                self.compiled = secure_compile(self.pattern, 0)
                 self.is_valid = True
             except re.error:
                 # Invalid regex, mark as invalid
@@ -67,11 +66,8 @@ class ExclusionPattern:
                 # If pattern times out, skip it (don't match)
                 return False
         elif not self.is_regex:
-            # Plain text matching
-            if self.case_sensitive:
-                return self.pattern in text
-            else:
-                return self.pattern.lower() in text.lower()
+            # Plain text matching - always case sensitive
+            return self.pattern in text
         else:
             return False
 
@@ -83,24 +79,21 @@ class ExclusionManager:
         self,
         patterns: Optional[List[str]] = None,
         is_regex: bool = True,
-        case_sensitive: bool = False,
     ):
         """Initialize the exclusion manager.
 
         Args:
             patterns: List of patterns to exclude
             is_regex: Whether patterns are regex
-            case_sensitive: Whether matching is case sensitive
         """
         self.is_regex = is_regex
-        self.case_sensitive = case_sensitive
         self._patterns: List[ExclusionPattern] = []
         self._excluded_count = 0
         self._excluded_lines: Dict[str, Set[int]] = {}
 
         if patterns:
             for pattern in patterns:
-                self.add_pattern(pattern)
+                self.add_pattern(pattern, is_regex=is_regex)
 
     @property
     def patterns(self) -> List[str]:
@@ -118,29 +111,20 @@ class ExclusionManager:
         Args:
             pattern: Pattern string to exclude
             is_regex: Override default regex setting
-            case_sensitive: Override default case sensitivity
+            case_sensitive: Ignored (always case sensitive now)
 
         Returns:
             True if pattern was added, False if it already exists
         """
         # Use instance defaults if not specified
         regex = is_regex if is_regex is not None else self.is_regex
-        case_sens = (
-            case_sensitive if case_sensitive is not None else self.case_sensitive
-        )
 
         # Check for duplicates
         for existing in self._patterns:
-            if (
-                existing.pattern == pattern
-                and existing.is_regex == regex
-                and existing.case_sensitive == case_sens
-            ):
+            if existing.pattern == pattern and existing.is_regex == regex:
                 return False  # Don't add duplicates
 
-        exclusion_pattern = ExclusionPattern(
-            pattern=pattern, is_regex=regex, case_sensitive=case_sens
-        )
+        exclusion_pattern = ExclusionPattern(pattern=pattern, is_regex=regex)
         self._patterns.append(exclusion_pattern)
         return True
 
@@ -162,10 +146,6 @@ class ExclusionManager:
                 return True
         return False
 
-    def clear_patterns(self) -> None:
-        """Clear all exclusion patterns."""
-        self._patterns.clear()
-        self._excluded_lines.clear()
 
     def should_exclude(self, line: str) -> bool:
         """Check if a line should be excluded.
@@ -191,13 +171,9 @@ class ExclusionManager:
                         # If there's an error during matching, skip this pattern
                         continue
             else:
-                # Literal match
-                if not pattern.case_sensitive:
-                    if pattern.pattern.lower() in line.lower():
-                        return True
-                else:
-                    if pattern.pattern in line:
-                        return True
+                # Literal match - always case sensitive
+                if pattern.pattern in line:
+                    return True
         return False
 
     def filter_lines(
@@ -286,7 +262,6 @@ class ExclusionManager:
                 {
                     "pattern": pattern.pattern,
                     "is_regex": pattern.is_regex,
-                    "case_sensitive": pattern.case_sensitive,
                 }
             )
 
@@ -306,17 +281,17 @@ class ExclusionManager:
             with open(file_path, "r") as f:
                 data = json.load(f)
 
-            self.clear_patterns()
+            self._patterns.clear()
+            self._excluded_lines.clear()
             for item in data:
                 self.add_pattern(
                     pattern=item["pattern"],
                     is_regex=item.get("is_regex", True),
-                    case_sensitive=item.get("case_sensitive", False),
                 )
         except Exception as e:
             print(f"Error loading exclusions: {e}")
 
-    def get_patterns_list(self) -> List[Dict[str, any]]:
+    def get_patterns_list(self) -> List[Dict[str, Any]]:
         """Get list of patterns with their properties.
 
         Returns:
@@ -328,7 +303,6 @@ class ExclusionManager:
                 {
                     "pattern": pattern.pattern,
                     "is_regex": pattern.is_regex,
-                    "case_sensitive": pattern.case_sensitive,
                     "excluded_count": len(
                         self._excluded_lines.get(pattern.pattern, set())
                     ),

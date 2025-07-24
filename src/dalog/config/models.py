@@ -61,6 +61,11 @@ class KeyBindings(BaseModel):
     start_selection: str = "v"
     yank_lines: str = "y"
 
+    # Exclusion modal navigation
+    exclusion_list_up: str = "k"
+    exclusion_list_down: str = "j"
+    exclusion_delete: str = "ctrl+d"
+
     # Footer display configuration
     display_in_footer: List[str] = Field(
         default_factory=lambda: [
@@ -117,7 +122,6 @@ class ExclusionConfig(BaseModel):
 
     patterns: List[str] = Field(default_factory=list)
     regex: bool = True
-    case_sensitive: bool = False
 
 
 class SSHConfig(BaseModel):
