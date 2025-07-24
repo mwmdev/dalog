@@ -152,3 +152,6 @@ config.toml
 
 # Claude
 CLAUDE.md
+
+# Kitty
+kitty.conf
