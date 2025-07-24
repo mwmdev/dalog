@@ -1,4 +1,6 @@
 name: Build and Publish to PyPI
+permissions:
+  contents: read
 
 on:
   # Trigger on new releases
