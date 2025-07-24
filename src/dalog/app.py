@@ -29,80 +29,6 @@ class HelpScreen(ModalScreen):
         super().__init__()
         self.keybindings = keybindings
 
-    DEFAULT_CSS = """
-    HelpScreen {
-        align: center middle;
-        background: rgba(0, 0, 0, 0.7);
-    }
-    
-    HelpScreen > Container {
-        width: 60;
-        height: auto;
-        max-height: 90%;
-        background: rgba(40, 40, 40, 0.95);
-        border: solid $accent;
-        padding: 1 2;
-    }
-    
-    HelpScreen Label {
-        width: 100%;
-        text-align: center;
-        background: transparent;
-        color: $accent;
-        text-style: bold;
-        margin-bottom: 1;
-    }
-    
-    HelpScreen .section-header {
-        width: 100%;
-        text-align: left;
-        background: transparent;
-        color: $accent;
-        text-style: bold;
-        margin: 1 0 0 0;
-        padding-left: 1;
-    }
-    
-    HelpScreen DataTable {
-        width: 100%;
-        height: auto;
-        background: transparent;
-        color: $text;
-        margin-bottom: 1;
-        overflow-x: hidden;
-        scrollbar-size: 0 0;
-    }
-    
-    HelpScreen DataTable > .datatable--header {
-        display: none;
-    }
-    
-    HelpScreen DataTable > .datatable--cursor {
-        background: transparent;
-        color: $text;
-    }
-    
-    HelpScreen DataTable > .datatable--hover {
-        background: transparent;
-    }
-    
-    HelpScreen DataTable .datatable--even-row {
-        background: transparent;
-    }
-    
-    HelpScreen DataTable .datatable--odd-row {
-        background: $surface 50%;
-    }
-    
-    HelpScreen .help-footer {
-        width: 100%;
-        text-align: center;
-        color: $text-muted;
-        margin-top: 1;
-        background: transparent;
-    }
-    """
-
     def compose(self) -> ComposeResult:
         """Compose the help screen layout."""
         kb = self.keybindings
@@ -328,6 +254,7 @@ def create_dalog_app(config_path: Optional[str] = None):
             self.log_processor: Optional[LogProcessor] = None
             self.log_viewer: Optional[LogViewerWidget] = None
             self.search_input: Optional[Input] = None
+            self.status_label: Optional[Label] = None
             self.file_watcher = AsyncFileWatcher()
             self.ssh_file_watcher = AsyncSSHFileWatcher()
 
@@ -338,6 +265,14 @@ def create_dalog_app(config_path: Optional[str] = None):
             """Compose the application layout."""
             # Main container with log viewer
             with Container(id="main-container"):
+                # Connection status label (initially hidden)
+                self.status_label = Label(
+                    "",
+                    id="status-label",
+                    classes="hidden",
+                )
+                yield self.status_label
+
                 # Enhanced log viewer
                 self.log_viewer = LogViewerWidget(
                     config=self.config,  # Now self.config is already loaded
@@ -356,6 +291,7 @@ def create_dalog_app(config_path: Optional[str] = None):
             # At this point, widgets are initialized and not None
             assert self.log_viewer is not None
             assert self.search_input is not None
+            assert self.status_label is not None
 
             # Footer with keybindings
             yield Footer()
@@ -407,6 +343,17 @@ def create_dalog_app(config_path: Optional[str] = None):
             await self.file_watcher.stop()
             await self.ssh_file_watcher.stop()
 
+            # Close SSH log reader connection if exists
+            if (
+                hasattr(self, "log_reader")
+                and self.log_reader
+                and hasattr(self.log_reader, "close")
+            ):
+                try:
+                    self.log_reader.close()
+                except:
+                    pass
+
         def _load_config_only(self) -> None:
             """Load configuration from file without setting reactive attributes."""
             try:
@@ -453,6 +400,19 @@ def create_dalog_app(config_path: Optional[str] = None):
             """
             file_source_str = str(file_source)
 
+            # Close existing log reader connection if switching files (not just reloading)
+            if (
+                not is_reload
+                and hasattr(self, "log_reader")
+                and self.log_reader
+                and hasattr(self.log_reader, "close")
+            ):
+                try:
+                    self.log_reader.close()
+                except:
+                    pass
+                self.log_reader = None
+
             # For local files, check if file exists
             if not is_ssh_url(file_source_str):
                 file_path = Path(file_source_str)
@@ -461,43 +421,151 @@ def create_dalog_app(config_path: Optional[str] = None):
                     return
 
             try:
-                # Create unified log reader (handles both local and SSH)
-                reader = create_unified_log_reader(
-                    file_source_str, tail_lines=self.tail_lines
-                )
+                # Show immediate connection status for SSH URLs (only if not reloading)
+                if is_ssh_url(file_source_str) and not is_reload:
+                    self.status_label.update(f"Connecting to {file_source_str}...")
+                    self.status_label.remove_class("hidden")
 
-                # Load file using reader
-                with reader:
-                    # Get file info
-                    file_info = reader.get_file_info()
-
-                    # Load lines into viewer - auto_scroll will handle staying at bottom
-                    if self.log_viewer is not None:
-                        self.log_viewer.load_from_reader(reader, scroll_to_end=True)
-
-                self.log_reader = reader
-                self.current_file = file_source_str
-
-                # Add to appropriate file watcher if live reload is enabled
+                # For SSH reloads, try to reuse existing connection if available
                 if (
-                    self.live_reload and not is_reload
-                ):  # Only add watcher on initial load
-                    if is_ssh_url(file_source_str):
-                        # Add to SSH file watcher
-                        if self.ssh_file_watcher.add_ssh_file(file_source_str):
-                            self.notify("Live reload enabled for SSH file", timeout=2)
-                        else:
-                            self.notify(
-                                "Failed to enable live reload for SSH file",
-                                severity="warning",
-                                timeout=3,
-                            )
-                    else:
-                        # Add to local file watcher
-                        self.file_watcher.add_file(Path(file_source_str))
+                    is_reload
+                    and is_ssh_url(file_source_str)
+                    and hasattr(self, "log_reader")
+                    and self.log_reader
+                ):
+                    try:
+                        # Reuse existing reader connection for reload
+                        reader = self.log_reader
+
+                        # Get file info and reload content
+                        file_info = reader.get_file_info()
+
+                        # Load lines into viewer - auto_scroll will handle staying at bottom
+                        if self.log_viewer is not None:
+                            self.log_viewer.load_from_reader(reader, scroll_to_end=True)
+
+                        # Connection reused successfully, exit early
+                        return
+
+                    except Exception:
+                        # If reusing connection fails, fall back to creating new connection
+                        reader = create_unified_log_reader(
+                            file_source_str, tail_lines=self.tail_lines
+                        )
+                        reader.open()
+                        try:
+                            # Get file info
+                            file_info = reader.get_file_info()
+
+                            # Load lines into viewer - auto_scroll will handle staying at bottom
+                            if self.log_viewer is not None:
+                                self.log_viewer.load_from_reader(
+                                    reader, scroll_to_end=True
+                                )
+
+                            self.log_reader = reader
+                            self.current_file = file_source_str
+                        except Exception:
+                            # Close reader on error
+                            reader.close()
+                            raise
+                else:
+                    # Create unified log reader (handles both local and SSH)
+                    reader = create_unified_log_reader(
+                        file_source_str, tail_lines=self.tail_lines
+                    )
+
+                    # Load file using reader but keep connection open for reuse
+                    reader.open()
+                    try:
+                        # Get file info
+                        file_info = reader.get_file_info()
+
+                        # Load lines into viewer - auto_scroll will handle staying at bottom
+                        if self.log_viewer is not None:
+                            self.log_viewer.load_from_reader(reader, scroll_to_end=True)
+
+                        self.log_reader = reader
+                        self.current_file = file_source_str
+
+                        # Hide connection status after successful load
+                        if is_ssh_url(file_source_str):
+                            self.status_label.add_class("hidden")
+
+                        # Add to appropriate file watcher if live reload is enabled
+                        if (
+                            self.live_reload and not is_reload
+                        ):  # Only add watcher on initial load
+                            if is_ssh_url(file_source_str):
+                                # Pass the existing SSH connection to the file watcher to reuse it
+                                if (
+                                    hasattr(reader, "_ssh_client")
+                                    and reader._ssh_client
+                                ):
+                                    if self.ssh_file_watcher.add_ssh_file_with_connection(
+                                        file_source_str,
+                                        reader._ssh_client,
+                                        reader.remote_path,
+                                        poll_interval=self.config.ssh.poll_interval,
+                                        max_poll_interval=self.config.ssh.max_poll_interval,
+                                    ):
+                                        self.notify(
+                                            "Live reload enabled for SSH file",
+                                            timeout=2,
+                                        )
+                                    else:
+                                        self.notify(
+                                            "Failed to enable live reload for SSH file",
+                                            severity="warning",
+                                            timeout=3,
+                                        )
+                                else:
+                                    # Fallback to original method if no connection available
+                                    if self.ssh_file_watcher.add_ssh_file(
+                                        file_source_str,
+                                        poll_interval=self.config.ssh.poll_interval,
+                                        max_poll_interval=self.config.ssh.max_poll_interval,
+                                    ):
+                                        self.notify(
+                                            "Live reload enabled for SSH file",
+                                            timeout=2,
+                                        )
+                                    else:
+                                        self.notify(
+                                            "Failed to enable live reload for SSH file",
+                                            severity="warning",
+                                            timeout=3,
+                                        )
+                            else:
+                                # Add to local file watcher
+                                self.file_watcher.add_file(Path(file_source_str))
+                    except Exception:
+                        # Close reader on error
+                        reader.close()
+                        raise
 
             except Exception as e:
-                self.notify(f"Error loading file: {e}", severity="error")
+                error_msg = str(e)
+
+                # Hide connection status on error
+                if is_ssh_url(file_source_str):
+                    self.status_label.add_class("hidden")
+
+                # Provide more specific error messages for SSH issues
+                if "Host key verification failed" in error_msg:
+                    self.notify(
+                        f"SSH Host Key Error: {e}", severity="error", timeout=10
+                    )
+                elif "SSH authentication failed" in error_msg:
+                    self.notify(
+                        f"SSH Authentication Error: {e}", severity="error", timeout=8
+                    )
+                elif "Unable to connect" in error_msg:
+                    self.notify(
+                        f"SSH Connection Error: {e}", severity="error", timeout=8
+                    )
+                else:
+                    self.notify(f"Error loading file: {e}", severity="error")
 
         async def _on_file_changed(self, file_path: Path) -> None:
             """Handle file change events from file watcher.
@@ -554,14 +622,41 @@ def create_dalog_app(config_path: Optional[str] = None):
             self.live_reload = not self.live_reload
 
             if self.live_reload:
-                # Start file watcher
+                # Start both file watchers
                 await self.file_watcher.start(self._on_file_changed)
-                # Add current file to watcher
-                self.file_watcher.add_file(self.log_file)
-                self.notify("Live reload enabled", timeout=2)
+                await self.ssh_file_watcher.start(self._on_ssh_file_changed)
+
+                # Add current file to appropriate watcher
+                if is_ssh_url(self.current_file):
+                    # For SSH files, we need to get the connection from the current reader
+                    if (
+                        self.log_reader
+                        and hasattr(self.log_reader, "_ssh_client")
+                        and self.log_reader._ssh_client
+                    ):
+                        if self.ssh_file_watcher.add_ssh_file_with_connection(
+                            self.current_file,
+                            self.log_reader._ssh_client,
+                            self.log_reader.remote_path,
+                            poll_interval=self.config.ssh.poll_interval,
+                            max_poll_interval=self.config.ssh.max_poll_interval,
+                        ):
+                            self.notify("Live reload enabled for SSH file", timeout=2)
+                        else:
+                            self.notify(
+                                "Failed to enable live reload for SSH file", timeout=2
+                            )
+                    else:
+                        self.notify(
+                            "No SSH connection available for live reload", timeout=2
+                        )
+                else:
+                    self.file_watcher.add_file(self.log_file)
+                    self.notify("Live reload enabled", timeout=2)
             else:
-                # Stop file watcher
+                # Stop both file watchers
                 await self.file_watcher.stop()
+                await self.ssh_file_watcher.stop()
                 self.notify("Live reload disabled", timeout=2)
 
         async def action_toggle_wrap(self) -> None:

@@ -6,54 +6,97 @@ import asyncio
 import threading
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Coroutine, Dict, Optional
+from typing import Any, Callable, Coroutine, Dict, Optional, Union
 
 import paramiko
 from paramiko import SSHClient
 
-from .remote_reader import RemoteFileWatcher, SSHLogReader
+from .remote_reader import RemoteFileWatcher, SSHLogReader, create_secure_ssh_client
 
 
 class SSHFileWatcherThread(threading.Thread):
     """Background thread for monitoring SSH files."""
 
     def __init__(
-        self, ssh_url: str, callback: Callable[[str], None], poll_interval: float = 2.0
+        self,
+        ssh_url: str,
+        callback: Callable[[str], None],
+        poll_interval: float = 1.0,  # Fast polling for real-time updates
+        max_poll_interval: float = 2.0,  # Back off to this when idle
+        strict_host_key_checking: bool = True,
+        connection_timeout: int = 30,
+        known_hosts_file: Optional[str] = None,
     ):
-        """Initialize SSH file watcher thread.
+        """Initialize SSH file watcher thread with security options.
 
         Args:
             ssh_url: SSH URL to monitor
             callback: Function to call when file changes
-            poll_interval: Seconds between checks
+            poll_interval: Initial seconds between checks (fast polling)
+            max_poll_interval: Maximum interval when backing off during idle periods
+            strict_host_key_checking: Whether to enforce strict host key checking
+            connection_timeout: SSH connection timeout in seconds
+            known_hosts_file: Optional path to known_hosts file
         """
         super().__init__(daemon=True)
         self.ssh_url = ssh_url
         self.callback = callback
-        self.poll_interval = poll_interval
+        self.min_poll_interval = poll_interval
+        self.max_poll_interval = max_poll_interval
+        self.current_poll_interval = poll_interval
         self._stop_event = threading.Event()
-        self._ssh_reader = SSHLogReader(ssh_url)
+        self._consecutive_no_changes = 0
+
+        # Create SSH reader with security options
+        self._ssh_reader = SSHLogReader(
+            ssh_url,
+            strict_host_key_checking=strict_host_key_checking,
+            connection_timeout=connection_timeout,
+            known_hosts_file=known_hosts_file,
+        )
         self._remote_watcher = None
 
     def stop(self):
         """Stop the watcher thread."""
         self._stop_event.set()
 
+        # Clean up remote watcher if it exists
+        if self._remote_watcher:
+            try:
+                self._remote_watcher.close()
+            except:
+                pass
+
     def run(self):
-        """Run the polling loop."""
+        """Run the polling loop with secure SSH connection."""
+        ssh_client = None
         try:
-            # Parse SSH connection details
+            # Parse SSH connection details (validation happens in constructor)
             self._ssh_reader._parse_ssh_url()
 
-            # Create SSH connection
-            ssh_client = SSHClient()
-            ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            # Create secure SSH connection
+            ssh_client = create_secure_ssh_client(
+                self._ssh_reader.host,
+                self._ssh_reader.port,
+                self._ssh_reader.user,
+                strict_host_key_checking=self._ssh_reader.strict_host_key_checking,
+                known_hosts_file=self._ssh_reader.known_hosts_file,
+                connection_timeout=self._ssh_reader.connection_timeout,
+            )
+
+            # Connect with secure settings
             ssh_client.connect(
                 hostname=self._ssh_reader.host,
                 port=self._ssh_reader.port,
                 username=self._ssh_reader.user,
                 look_for_keys=True,
                 allow_agent=True,
+                timeout=self._ssh_reader.connection_timeout,
+                # Disable less secure authentication methods
+                disabled_algorithms={
+                    "pubkeys": ["ssh-dss"],  # Disable weak DSA keys
+                    "kex": ["diffie-hellman-group1-sha1"],  # Disable weak key exchange
+                },
             )
 
             # Create remote file watcher
@@ -64,21 +107,127 @@ class SSHFileWatcherThread(threading.Thread):
             # Initialize watcher state
             self._remote_watcher.check_for_changes()
 
-            # Poll for changes
+            # Poll for changes with adaptive intervals
             while not self._stop_event.is_set():
                 if self._remote_watcher.check_for_changes():
                     # File changed, invoke callback
                     self.callback(self.ssh_url)
+                    # Reset to fast polling when activity detected
+                    self.current_poll_interval = self.min_poll_interval
+                    self._consecutive_no_changes = 0
+                else:
+                    # No changes - gradually increase poll interval to reduce overhead
+                    self._consecutive_no_changes += 1
+                    if self._consecutive_no_changes >= 5:  # After 5 no-change cycles
+                        # Exponentially back off up to max_poll_interval
+                        self.current_poll_interval = min(
+                            self.current_poll_interval * 1.5, self.max_poll_interval
+                        )
 
-                # Wait before next check
-                self._stop_event.wait(self.poll_interval)
+                # Wait before next check using adaptive interval
+                self._stop_event.wait(self.current_poll_interval)
 
         except Exception as e:
-            print(f"Error in SSH file watcher: {e}")
+            # Don't expose detailed error information that might leak sensitive details
+            print(f"Error in SSH file watcher: connection failed")
         finally:
-            if hasattr(self, "ssh_client"):
+            # Clean up resources properly
+            if self._remote_watcher:
+                try:
+                    self._remote_watcher.close()
+                except:
+                    pass
+            if ssh_client:
                 try:
                     ssh_client.close()
+                except:
+                    pass
+
+
+class SSHFileWatcherThreadWithConnection(threading.Thread):
+    """Background thread for monitoring SSH files using an existing SSH connection."""
+
+    def __init__(
+        self,
+        ssh_url: str,
+        existing_ssh_client: SSHClient,
+        remote_path: str,
+        callback: Callable[[str], None],
+        poll_interval: float = 1.0,
+        max_poll_interval: float = 2.0,
+    ):
+        """Initialize SSH file watcher thread with existing connection.
+
+        Args:
+            ssh_url: SSH URL to monitor (for identification)
+            existing_ssh_client: Existing SSH client connection to reuse
+            remote_path: Path to remote file
+            callback: Function to call when file changes
+            poll_interval: Initial seconds between checks (fast polling)
+            max_poll_interval: Maximum interval when backing off during idle periods
+        """
+        super().__init__(daemon=True)
+        self.ssh_url = ssh_url
+        self.existing_ssh_client = existing_ssh_client
+        self.remote_path = remote_path
+        self.callback = callback
+        self.min_poll_interval = poll_interval
+        self.max_poll_interval = max_poll_interval
+        self.current_poll_interval = poll_interval
+        self._stop_event = threading.Event()
+        self._remote_watcher = None
+        self._consecutive_no_changes = 0
+
+    def stop(self):
+        """Stop the watcher thread."""
+        self._stop_event.set()
+
+        # Clean up remote watcher if it exists
+        if self._remote_watcher:
+            try:
+                self._remote_watcher.close()
+            except:
+                pass
+
+    def run(self):
+        """Run the polling loop using existing SSH connection."""
+        try:
+            # Create remote file watcher using existing SSH connection
+            self._remote_watcher = RemoteFileWatcher(
+                self.existing_ssh_client, self.remote_path
+            )
+
+            # Initialize watcher state
+            self._remote_watcher.check_for_changes()
+
+            # Poll for changes with adaptive intervals
+            while not self._stop_event.is_set():
+                if self._remote_watcher.check_for_changes():
+                    # File changed, invoke callback
+                    self.callback(self.ssh_url)
+                    # Reset to fast polling when activity detected
+                    self.current_poll_interval = self.min_poll_interval
+                    self._consecutive_no_changes = 0
+                else:
+                    # No changes - gradually increase poll interval to reduce overhead
+                    self._consecutive_no_changes += 1
+                    if self._consecutive_no_changes >= 5:  # After 5 no-change cycles
+                        # Exponentially back off up to max_poll_interval
+                        self.current_poll_interval = min(
+                            self.current_poll_interval * 1.5, self.max_poll_interval
+                        )
+
+                # Wait before next check using adaptive interval
+                self._stop_event.wait(self.current_poll_interval)
+
+        except Exception as e:
+            # Don't expose detailed error information that might leak sensitive details
+            print(f"Error in SSH file watcher (existing connection): connection failed")
+        finally:
+            # Clean up resources properly
+            if self._remote_watcher:
+                try:
+                    self._remote_watcher.close()
                 except:
                     pass
 
@@ -88,7 +237,9 @@ class AsyncSSHFileWatcher:
 
     def __init__(self):
         """Initialize the async SSH file watcher."""
-        self._watchers: Dict[str, SSHFileWatcherThread] = {}
+        self._watchers: Dict[
+            str, Union[SSHFileWatcherThread, SSHFileWatcherThreadWithConnection]
+        ] = {}
         self._event_queue: asyncio.Queue = asyncio.Queue(maxsize=100)
         self._process_task: Optional[asyncio.Task] = None
         self._callback = None
@@ -132,12 +283,22 @@ class AsyncSSHFileWatcher:
             except asyncio.QueueEmpty:
                 break
 
-    def add_ssh_file(self, ssh_url: str, poll_interval: float = 2.0) -> bool:
-        """Add an SSH file to monitor.
+    def add_ssh_file_with_connection(
+        self,
+        ssh_url: str,
+        existing_ssh_client: SSHClient,
+        remote_path: str,
+        poll_interval: float = 1.0,
+        max_poll_interval: float = 2.0,
+    ) -> bool:
+        """Add an SSH file to monitor using an existing SSH connection.
 
         Args:
             ssh_url: SSH URL to monitor
-            poll_interval: Seconds between checks
+            existing_ssh_client: Existing SSH client connection to reuse
+            remote_path: Remote file path
+            poll_interval: Initial seconds between checks (fast polling)
+            max_poll_interval: Maximum interval when backing off during idle periods
 
         Returns:
             True if file was added successfully
@@ -146,13 +307,65 @@ class AsyncSSHFileWatcher:
             return True  # Already watching
 
         try:
-            # Create and start watcher thread
-            watcher = SSHFileWatcherThread(ssh_url, self._queue_event, poll_interval)
+            # Create and start watcher thread with existing connection
+            watcher = SSHFileWatcherThreadWithConnection(
+                ssh_url,
+                existing_ssh_client,
+                remote_path,
+                self._queue_event,
+                poll_interval,
+                max_poll_interval,
+            )
             watcher.start()
             self._watchers[ssh_url] = watcher
             return True
-        except Exception as e:
-            print(f"Error adding SSH file to watcher: {e}")
+        except Exception:
+            # Don't expose detailed error information
+            print(f"Error adding SSH file to watcher: connection reuse failed")
+            return False
+
+    def add_ssh_file(
+        self,
+        ssh_url: str,
+        poll_interval: float = 1.0,  # Fast polling for real-time updates
+        max_poll_interval: float = 2.0,  # Back off to this when idle
+        strict_host_key_checking: bool = True,
+        connection_timeout: int = 30,
+        known_hosts_file: Optional[str] = None,
+    ) -> bool:
+        """Add an SSH file to monitor with security options.
+
+        Args:
+            ssh_url: SSH URL to monitor
+            poll_interval: Initial seconds between checks (fast polling)
+            max_poll_interval: Maximum interval when backing off during idle periods
+            strict_host_key_checking: Whether to enforce strict host key checking
+            connection_timeout: SSH connection timeout in seconds
+            known_hosts_file: Optional path to known_hosts file
+
+        Returns:
+            True if file was added successfully
+        """
+        if ssh_url in self._watchers:
+            return True  # Already watching
+
+        try:
+            # Create and start watcher thread with security options
+            watcher = SSHFileWatcherThread(
+                ssh_url,
+                self._queue_event,
+                poll_interval,
+                max_poll_interval,
+                strict_host_key_checking=strict_host_key_checking,
+                connection_timeout=connection_timeout,
+                known_hosts_file=known_hosts_file,
+            )
+            watcher.start()
+            self._watchers[ssh_url] = watcher
+            return True
+        except Exception:
+            # Don't expose detailed error information
+            print(f"Error adding SSH file to watcher: connection failed")
             return False
 
     def remove_ssh_file(self, ssh_url: str) -> bool:
