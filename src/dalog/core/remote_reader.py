@@ -47,6 +47,22 @@ class DalogSecureHostKeyPolicy(MissingHostKeyPolicy):
             f"You can do this by running: ssh-keyscan {hostname} >> ~/.ssh/known_hosts"
         )
 
+class DalogWarningHostKeyPolicy(MissingHostKeyPolicy):
+    """Custom host key policy that logs a warning and rejects unknown hosts."""
+
+    def missing_host_key(self, client, hostname, key):
+        """Log a warning and reject the connection for unknown host keys."""
+        key_type = key.get_name()
+        fingerprint = key.get_fingerprint().hex()
+
+        print(
+            f"WARNING: Host key verification failed for {hostname}\n"
+            f"Unknown {key_type} key with fingerprint: {fingerprint}\n"
+            f"Connection will be rejected. Add this host to your known_hosts file to proceed.\n"
+            f"You can do this by running: ssh-keyscan {hostname} >> ~/.ssh/known_hosts"
+        )
+        raise SSHException(f"Host key verification failed for {hostname}")
+
 
 def create_secure_ssh_client(
     host: str,
@@ -91,8 +107,8 @@ def create_secure_ssh_client(
     if strict_host_key_checking:
         ssh_client.set_missing_host_key_policy(DalogSecureHostKeyPolicy())
     else:
-        # Even in non-strict mode, use warning policy instead of auto-add
-        ssh_client.set_missing_host_key_policy(WarningPolicy())
+        # Even in non-strict mode, use custom warning policy that rejects unknown hosts
+        ssh_client.set_missing_host_key_policy(DalogWarningHostKeyPolicy())
 
     return ssh_client
 
