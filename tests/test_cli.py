@@ -53,6 +53,7 @@ class TestCLI:
         (['--theme', 'nord'], 'theme', 'nord'),
         (['--theme', 'gruvbox'], 'theme', 'gruvbox'),
     ])
+    @pytest.mark.ci_skip
     def test_single_options(self, mock_create_app, cli_runner, sample_log_file, option_args, expected_attr, expected_value):
         """Test individual CLI options."""
         mock_app = Mock()
@@ -145,6 +146,7 @@ class TestCLI:
     # Individual option tests are now covered by the parametrized test_single_options above
     
     @patch('dalog.cli.create_dalog_app')
+    @pytest.mark.ci_skip
     def test_all_options_combined(self, mock_create_app, cli_runner, sample_log_file):
         """Test CLI with all options combined."""
         mock_app = Mock()

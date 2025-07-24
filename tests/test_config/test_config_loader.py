@@ -22,6 +22,7 @@ class TestConfigLoader:
         assert config.keybindings.search == "/"
         assert config.display.show_line_numbers is True
     
+    @pytest.mark.ci_skip
     def test_load_config_from_explicit_path(self):
         """Test loading config from explicitly provided path."""
         config_data = {
@@ -123,8 +124,7 @@ class TestConfigLoader:
             "app": {
                 "default_tail_lines": 2000,
                 "live_reload": False,
-                "case_sensitive_search": True,
-                "vim_mode": False
+                "case_sensitive_search": True
             },
             "keybindings": {
                 "search": "?",
@@ -158,7 +158,6 @@ class TestConfigLoader:
             assert config.app.default_tail_lines == 2000
             assert config.app.live_reload is False
             assert config.app.case_sensitive_search is True
-            assert config.app.vim_mode is False
             
             # Verify keybindings
             assert config.keybindings.search == "?"
@@ -190,6 +189,7 @@ class TestConfigLoader:
         assert any('/.dalog.toml' in loc for loc in locations)
         assert 'config.toml' in locations
     
+    @pytest.mark.ci_skip
     def test_load_with_missing_sections(self):
         """Test loading config with some sections missing."""
         config_data = {

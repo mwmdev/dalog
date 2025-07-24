@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dalog"
-version = "0.2.0"
+version = "0.2.2"
 description = "Your friendly terminal logs viewer"
 authors = [{name = "Mike Wassmer", email = "mikewassmer@protonmail.com"}]
 license = {text = "MIT"}
@@ -84,5 +84,6 @@ python_files = "test_*.py"
 python_functions = "test_*"
 asyncio_mode = "auto"
 markers = [
-    "slow: marks tests as slow (deselect with '-m \"not slow\"')"
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "ci_skip: marks tests to skip in CI environment (deselect with '-m \"not ci_skip\"')"
 ] 

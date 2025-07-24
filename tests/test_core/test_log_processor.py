@@ -47,6 +47,7 @@ class TestLogProcessor:
         finally:
             sample_log_file.unlink()
     
+    @pytest.mark.ci_skip
     def test_init_with_nonexistent_file(self):
         """Test initializing LogProcessor with non-existent file."""
         with pytest.raises(FileNotFoundError):

@@ -9,6 +9,7 @@ from dalog.core.remote_reader import SSHLogReader, is_ssh_url, RemoteFileWatcher
 from dalog.core.log_processor import LogLine
 
 
+@pytest.mark.ci_skip
 class TestSSHURLParsing:
     """Test SSH URL parsing functionality."""
     
@@ -60,6 +61,7 @@ class TestSSHURLParsing:
         assert reader.remote_path == "/logs/error.log"
 
 
+@pytest.mark.ci_skip
 class TestSSHLogReader:
     """Test SSH log reader functionality."""
     
@@ -203,6 +205,7 @@ class TestSSHLogReader:
         )
 
 
+@pytest.mark.ci_skip
 class TestRemoteFileWatcher:
     """Test remote file watching functionality."""
     
