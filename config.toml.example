@@ -9,7 +9,6 @@
 default_tail_lines = 1000
 live_reload = true
 case_sensitive_search = false
-vim_mode = true
 
 [keybindings]
 # General commands

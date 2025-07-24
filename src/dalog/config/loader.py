@@ -36,7 +36,7 @@ class ConfigLoader:
 
     @classmethod
     def load(cls, config_path: Optional[str] = None) -> DaLogConfig:
-        """Load configuration from file or defaults.
+        """Load configuration from file or defaults with security validation.
 
         Args:
             config_path: Optional path to config file
@@ -45,21 +45,40 @@ class ConfigLoader:
             Configuration object
         """
         if config_path:
-            # Try to load from explicit path
-            path = Path(config_path)
-            if path.exists():
-                try:
-                    return cls._load_from_file(path)
-                except Exception:
-                    # If loading fails, fall back to default
-                    return get_default_config()
-            else:
-                # File doesn't exist, return default config
-                return get_default_config()
+            # Try to load from explicit path with security validation
+            try:
+                from ..security.path_security import validate_config_path
+
+                safe_path = validate_config_path(config_path)
+
+                if safe_path.exists():
+                    return cls._load_from_file(safe_path)
+                else:
+                    # File doesn't exist, return default config
+                    config = get_default_config()
+                    cls._configure_security(config)
+                    return config
+
+            except Exception:
+                # If security validation or loading fails, fall back to default
+                config = get_default_config()
+                cls._configure_security(config)
+                return config
         else:
-            # Search for config file in standard locations
-            for location_func in cls.CONFIG_LOCATIONS:
-                path = Path(location_func())
+            # Search for config file in standard locations with security
+            try:
+                from ..security.path_security import get_safe_config_search_paths
+
+                search_paths = get_safe_config_search_paths()
+            except Exception:
+                # Fallback to basic search if security module fails
+                search_paths = [
+                    Path.home() / ".config" / "dalog" / "config.toml",
+                    Path.home() / ".dalog.toml",
+                    Path.cwd() / "config.toml",
+                ]
+
+            for path in search_paths:
                 if path.exists():
                     try:
                         return cls._load_from_file(path)
@@ -68,7 +87,9 @@ class ConfigLoader:
                         continue
 
             # No config file found, return defaults
-            return get_default_config()
+            config = get_default_config()
+            cls._configure_security(config)
+            return config
 
     @staticmethod
     def _load_from_file(path: Path) -> DaLogConfig:
@@ -90,6 +111,9 @@ class ConfigLoader:
             # Merge with defaults to ensure all fields are present
             default_config = get_default_config()
             merged_config = ConfigLoader._merge_configs(default_config, data)
+
+            # Configure security system with loaded settings
+            ConfigLoader._configure_security(merged_config)
 
             return merged_config
 
@@ -228,17 +252,37 @@ class ConfigLoader:
                 patterns = getattr(config.styling, category, {})
                 for name, pattern in patterns.items():
                     try:
-                        re.compile(pattern.pattern)
+                        # Import security module
+                        from ..security.regex_security import (
+                            RegexComplexityError,
+                            RegexTimeoutError,
+                            secure_compile,
+                        )
+
+                        # Use secure compilation for validation
+                        secure_compile(pattern.pattern)
                     except re.error as e:
                         errors.append(f"Invalid regex in {category}.{name}: {e}")
+                    except (RegexComplexityError, RegexTimeoutError) as e:
+                        errors.append(f"Unsafe regex in {category}.{name}: {e}")
 
         # Validate exclusion patterns
         if config.exclusions and config.exclusions.regex:
             for pattern in config.exclusions.patterns:
                 try:
-                    re.compile(pattern)
+                    # Import security module
+                    from ..security.regex_security import (
+                        RegexComplexityError,
+                        RegexTimeoutError,
+                        secure_compile,
+                    )
+
+                    # Use secure compilation for validation
+                    secure_compile(pattern)
                 except re.error as e:
                     errors.append(f"Invalid exclusion regex '{pattern}': {e}")
+                except (RegexComplexityError, RegexTimeoutError) as e:
+                    errors.append(f"Unsafe exclusion regex '{pattern}': {e}")
 
         return errors
 
@@ -278,3 +322,52 @@ class ConfigLoader:
 
         path.write_text(DEFAULT_CONFIG_TOML)
         return path
+
+    @staticmethod
+    def _configure_security(config: DaLogConfig) -> None:
+        """Configure the security system with loaded configuration.
+
+        Args:
+            config: Configuration object with security settings
+        """
+        try:
+            # Configure regex security
+            from ..security.regex_security import SecurityConfig as RegexSecurityConfig
+            from ..security.regex_security import (
+                configure_security as configure_regex_security,
+            )
+
+            regex_security_config = RegexSecurityConfig(
+                compilation_timeout=config.security.regex_compilation_timeout,
+                execution_timeout=config.security.regex_execution_timeout,
+                max_pattern_length=config.security.max_pattern_length,
+                max_quantifier_nesting=config.security.max_quantifier_nesting,
+                max_alternation_groups=config.security.max_alternation_groups,
+                enable_complexity_analysis=config.security.enable_complexity_analysis,
+                enable_timeout_protection=config.security.enable_timeout_protection,
+            )
+
+            configure_regex_security(regex_security_config)
+
+        except Exception as e:
+            # Log error but don't crash if regex security configuration fails
+            print(f"Warning: Failed to configure regex security: {e}")
+
+        try:
+            # Configure path security
+            from ..security.path_security import (
+                PathSecurityConfig,
+                configure_path_security,
+            )
+
+            path_security_config = PathSecurityConfig(
+                max_config_size=config.security.max_config_file_size,
+                max_log_size=config.security.max_log_file_size,
+                allow_symlinks=config.security.allow_symlinks,
+            )
+
+            configure_path_security(path_security_config)
+
+        except Exception as e:
+            # Log error but don't crash if path security configuration fails
+            print(f"Warning: Failed to configure path security: {e}")

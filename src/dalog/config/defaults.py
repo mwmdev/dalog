@@ -21,7 +21,6 @@ def get_default_config() -> DaLogConfig:
             default_tail_lines=1000,
             live_reload=True,
             case_sensitive_search=False,
-            vim_mode=True,
         ),
         keybindings=KeyBindings(
             search="/",
@@ -213,7 +212,6 @@ DEFAULT_CONFIG_TOML = """# DaLog Configuration File
 default_tail_lines = 1000
 live_reload = true
 case_sensitive_search = false
-vim_mode = true
 
 [keybindings]
 search = "/"
@@ -370,4 +368,15 @@ strip_unknown_tags = true
 patterns = []
 regex = true
 case_sensitive = false
+
+[ssh]
+# SSH connection and security settings
+strict_host_key_checking = true
+connection_timeout = 30
+command_timeout = 60
+max_tail_lines = 1000000
+# Poll intervals for SSH file watching (real-time log streaming)
+poll_interval = 1.0          # Fast polling interval in seconds (for active monitoring)
+max_poll_interval = 2.0      # Maximum interval when backing off during idle periods
+# known_hosts_file = "/path/to/custom/known_hosts"  # Optional custom known_hosts file
 """

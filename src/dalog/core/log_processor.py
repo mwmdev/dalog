@@ -35,7 +35,7 @@ class LogProcessor:
     """Efficient log file processing with large file support."""
 
     def __init__(self, file_path: Path, tail_lines: Optional[int] = None):
-        """Initialize the log processor.
+        """Initialize the log processor with security validation.
 
         Args:
             file_path: Path to the log file
@@ -43,11 +43,34 @@ class LogProcessor:
 
         Raises:
             FileNotFoundError: If the log file doesn't exist
+            PathSecurityError: If the file path fails security validation
         """
-        if not file_path.exists():
-            raise FileNotFoundError(f"Log file not found: {file_path}")
+        # Import security validation
+        try:
+            from ..security.path_security import PathSecurityError, validate_log_path
 
-        self.file_path = file_path
+            # Validate the file path for security
+            safe_path = validate_log_path(file_path)
+            self.file_path = safe_path
+
+        except ImportError:
+            # Fallback if security module not available
+            if not file_path.exists():
+                raise FileNotFoundError(f"Log file not found: {file_path}")
+            self.file_path = file_path
+        except Exception as e:
+            # Convert security errors to more user-friendly messages
+            if "PathSecurityError" in str(type(e).__name__):
+                from ..security.path_security import PathSecurityError
+
+                raise PathSecurityError(f"Log file security validation failed: {e}")
+            else:
+                raise e
+
+        # Final existence check
+        if not self.file_path.exists():
+            raise FileNotFoundError(f"Log file not found: {self.file_path}")
+
         self.tail_lines = tail_lines
         self.encoding = "utf-8"
         self._file_size = 0
