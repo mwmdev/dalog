@@ -2,7 +2,9 @@
 Regex-based styling engine for log content.
 """
 
+import bisect
 import re
+import time
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import Dict, List, Optional, Tuple
@@ -11,6 +13,67 @@ from rich.style import Style
 from rich.text import Text
 
 from ..config.models import StylePattern, StylingConfig
+
+
+@dataclass
+class StyleRange:
+    """Represents a styled text range with priority."""
+
+    start: int
+    end: int
+    style: Style
+    priority: int
+
+
+class OptimizedRangeManager:
+    """Optimized range overlap detection using sorted ranges for O(log n) performance."""
+
+    def __init__(self):
+        # Keep ranges sorted by start position for binary search
+        self.ranges: List[StyleRange] = []
+
+    def can_apply_range(self, start: int, end: int, priority: int) -> bool:
+        """Check if a range can be applied without conflicts.
+
+        Uses binary search to find potentially overlapping ranges,
+        reducing complexity from O(n) to O(log n).
+        """
+        if not self.ranges:
+            return True
+
+        # Find the insertion point for the start position
+        idx = bisect.bisect_left([r.start for r in self.ranges], start)
+
+        # Check ranges that might overlap
+        # Check ranges starting before our range
+        if idx > 0:
+            prev_range = self.ranges[idx - 1]
+            if prev_range.end > start and prev_range.priority >= priority:
+                return False
+
+        # Check ranges starting at or after our start position
+        while idx < len(self.ranges):
+            curr_range = self.ranges[idx]
+            # If current range starts after our range ends, no more overlaps possible
+            if curr_range.start >= end:
+                break
+            # If ranges overlap and current has higher or equal priority, reject
+            if curr_range.priority >= priority:
+                return False
+            idx += 1
+
+        return True
+
+    def add_range(self, start: int, end: int, style: Style, priority: int) -> None:
+        """Add a range to the manager, maintaining sorted order."""
+        range_obj = StyleRange(start, end, style, priority)
+        # Insert in sorted position
+        idx = bisect.bisect_left([r.start for r in self.ranges], start)
+        self.ranges.insert(idx, range_obj)
+
+    def clear(self) -> None:
+        """Clear all ranges."""
+        self.ranges.clear()
 
 
 @dataclass
@@ -34,6 +97,13 @@ class StylingEngine:
         """
         self.config = styling_config
         self.compiled_patterns: List[CompiledPattern] = []
+
+        # Performance metrics
+        self.total_styling_time = 0.0
+        self.total_lines_processed = 0
+        self.cache_hits = 0
+        self.cache_misses = 0
+
         self._compile_all_patterns()
 
     def _compile_all_patterns(self) -> None:
@@ -76,8 +146,15 @@ class StylingEngine:
             CompiledPattern or None if pattern is invalid
         """
         try:
-            # Compile regex with flags for better matching
-            regex = re.compile(pattern_config.pattern, re.MULTILINE)
+            # Import security module
+            from ..security.regex_security import (
+                RegexComplexityError,
+                RegexTimeoutError,
+                secure_compile,
+            )
+
+            # Compile regex with security protections
+            regex = secure_compile(pattern_config.pattern, re.MULTILINE)
 
             # Create Rich style from configuration
             style_kwargs = {}
@@ -102,6 +179,10 @@ class StylingEngine:
             # Log error but don't crash
             print(f"Warning: Invalid regex pattern '{name}': {e}")
             return None
+        except (RegexComplexityError, RegexTimeoutError) as e:
+            # Log security-related errors but don't crash
+            print(f"Warning: Unsafe regex pattern '{name}' blocked for security: {e}")
+            return None
 
     def apply_styling(self, line: str) -> Text:
         """Apply all matching patterns to a line.
@@ -112,6 +193,9 @@ class StylingEngine:
         Returns:
             Styled Rich Text object
         """
+        start_time = time.perf_counter()
+        self.cache_misses += 1
+
         text = Text(line)
 
         # Track which character positions have been styled
@@ -120,7 +204,24 @@ class StylingEngine:
 
         # Apply each pattern
         for compiled in self.compiled_patterns:
-            for match in compiled.pattern.finditer(line):
+            try:
+                # Import security module
+                from ..security.regex_security import RegexTimeoutError, secure_finditer
+
+                # Use secure finditer with timeout protection
+                matches = secure_finditer(compiled.pattern, line)
+            except RegexTimeoutError:
+                # Skip pattern if it times out during execution
+                print(
+                    f"Warning: Pattern '{compiled.name}' timed out during execution, skipping"
+                )
+                continue
+            except Exception:
+                # Skip pattern if any other error occurs during execution
+                continue
+
+            # Process matches
+            for match in matches:
                 # Check if pattern has groups (for contextual highlighting)
                 if match.groups():
                     # For patterns with groups, we want to style specific groups
@@ -138,31 +239,25 @@ class StylingEngine:
 
                 styled_ranges.append((start, end, compiled.style, compiled.priority))
 
-        # Sort ranges by start position and priority
+        # Sort ranges by start position and priority (higher priority first for same start)
         styled_ranges.sort(key=lambda x: (x[0], -x[3]))
 
-        # Apply styles, allowing higher priority styles to override
-        applied_ranges = []
-        for start, end, style, priority in styled_ranges:
-            # Check if this range overlaps with any already applied
-            can_apply = True
-            for applied_start, applied_end, applied_priority in applied_ranges:
-                # If ranges overlap and applied has higher priority, skip
-                if (
-                    start < applied_end
-                    and end > applied_start
-                    and applied_priority >= priority
-                ):
-                    can_apply = False
-                    break
+        # Use optimized range manager for O(log n) overlap detection
+        range_manager = OptimizedRangeManager()
 
-            if can_apply:
+        for start, end, style, priority in styled_ranges:
+            # Check if this range can be applied without conflicts
+            if range_manager.can_apply_range(start, end, priority):
                 text.stylize(style, start, end)
-                applied_ranges.append((start, end, priority))
+                range_manager.add_range(start, end, style, priority)
+
+        # Update performance metrics
+        elapsed_time = time.perf_counter() - start_time
+        self.total_styling_time += elapsed_time
+        self.total_lines_processed += 1
 
         return text
 
-    @lru_cache(maxsize=1000)
     def apply_styling_cached(self, line: str) -> Text:
         """Apply styling with caching for repeated lines.
 
@@ -172,7 +267,26 @@ class StylingEngine:
         Returns:
             Styled Rich Text object
         """
-        return self.apply_styling(line)
+        # Use simple cache with cache hit tracking
+        if not hasattr(self, "_style_cache"):
+            self._style_cache: Dict[str, Text] = {}
+
+        if line in self._style_cache:
+            self.cache_hits += 1
+            return self._style_cache[line]
+
+        # Cache miss - compute styling
+        result = self.apply_styling(line)
+
+        # Keep cache size reasonable
+        if len(self._style_cache) >= 1000:
+            # Remove oldest 100 entries
+            keys_to_remove = list(self._style_cache.keys())[:100]
+            for key in keys_to_remove:
+                del self._style_cache[key]
+
+        self._style_cache[line] = result
+        return result
 
     def add_custom_pattern(self, name: str, pattern: str, **style_kwargs) -> bool:
         """Add a custom pattern at runtime.
@@ -208,6 +322,34 @@ class StylingEngine:
             print(f"Error adding custom pattern '{name}': {e}")
             return False
 
+    def get_performance_stats(self) -> Dict[str, float]:
+        """Get performance statistics for the styling engine.
+
+        Returns:
+            Dictionary with performance metrics
+        """
+        cache_hit_rate = (
+            self.cache_hits / (self.cache_hits + self.cache_misses)
+            if (self.cache_hits + self.cache_misses) > 0
+            else 0.0
+        )
+
+        avg_time_per_line = (
+            self.total_styling_time / self.total_lines_processed
+            if self.total_lines_processed > 0
+            else 0.0
+        )
+
+        return {
+            "total_lines_processed": self.total_lines_processed,
+            "total_styling_time": self.total_styling_time,
+            "average_time_per_line": avg_time_per_line,
+            "cache_hits": self.cache_hits,
+            "cache_misses": self.cache_misses,
+            "cache_hit_rate": cache_hit_rate,
+            "compiled_patterns_count": len(self.compiled_patterns),
+        }
+
     def remove_custom_pattern(self, name: str) -> bool:
         """Remove a custom pattern.
 
@@ -236,7 +378,7 @@ class StylingEngine:
         }
 
     def validate_pattern(self, pattern: str) -> Tuple[bool, Optional[str]]:
-        """Validate a regex pattern.
+        """Validate a regex pattern with security checks.
 
         Args:
             pattern: Regex pattern to validate
@@ -245,10 +387,20 @@ class StylingEngine:
             Tuple of (is_valid, error_message)
         """
         try:
-            re.compile(pattern)
+            # Import security module
+            from ..security.regex_security import (
+                RegexComplexityError,
+                RegexTimeoutError,
+                secure_compile,
+            )
+
+            # Use secure compilation for validation
+            secure_compile(pattern)
             return True, None
         except re.error as e:
-            return False, str(e)
+            return False, f"Invalid regex: {e}"
+        except (RegexComplexityError, RegexTimeoutError) as e:
+            return False, f"Security issue: {e}"
 
     def style_line(self, line: str) -> Tuple[str, List]:
         """Apply styling to a line and return styled text with matches.

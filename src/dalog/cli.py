@@ -22,21 +22,73 @@ def print_version(ctx, param, value):
 
 
 def validate_log_source(ctx, param, value):
-    """Validate log source (local file or SSH URL)."""
+    """Validate log source (local file or SSH URL) with security checks."""
     from .core.remote_reader import is_ssh_url
+    from .security.path_security import PathSecurityError, validate_log_path
 
     if is_ssh_url(value):
         # It's an SSH URL, no need to check if file exists locally
         return value
 
-    # It's a local file, check if it exists
-    path = Path(value)
-    if not path.exists():
-        raise click.BadParameter(f"File not found: {value}")
-    if not path.is_file():
-        raise click.BadParameter(f"Not a file: {value}")
+    # It's a local file, perform security validation
+    try:
+        safe_path = validate_log_path(value)
 
-    return str(path.resolve())
+        # Additional checks for existence and file type
+        if not safe_path.exists():
+            raise click.BadParameter(f"File not found: {value}")
+        if not safe_path.is_file():
+            raise click.BadParameter(f"Not a file: {value}")
+
+        return str(safe_path)
+
+    except PathSecurityError as e:
+        raise click.BadParameter(f"Security error: {e}")
+    except Exception as e:
+        raise click.BadParameter(f"Invalid file path: {e}")
+
+
+def validate_config_path(ctx, param, value):
+    """Validate configuration file path for security."""
+    if not value:
+        return value
+
+    from .security.path_security import PathSecurityError, validate_config_path
+
+    try:
+        safe_path = validate_config_path(value)
+
+        # Ensure it exists and is readable
+        if not safe_path.exists():
+            raise click.BadParameter(f"Configuration file not found: {value}")
+        if not safe_path.is_file():
+            raise click.BadParameter(f"Configuration path is not a file: {value}")
+
+        return str(safe_path)
+
+    except PathSecurityError as e:
+        raise click.BadParameter(f"Configuration security error: {e}")
+    except Exception as e:
+        raise click.BadParameter(f"Invalid configuration path: {e}")
+
+
+def validate_exclude_pattern(ctx, param, value):
+    """Validate exclusion patterns for security."""
+    if not value:
+        return value
+
+    from .security.regex_security import validate_pattern_security
+
+    validated_patterns = []
+    for pattern in value:
+        is_safe, error_msg = validate_pattern_security(pattern)
+        if not is_safe:
+            raise click.BadParameter(
+                f"Unsafe exclusion pattern '{pattern}': {error_msg}"
+            )
+        validated_patterns.append(pattern)
+
+    return tuple(validated_patterns)
 
 
 @click.command()
@@ -48,7 +100,8 @@ def validate_log_source(ctx, param, value):
 @click.option(
     "--config",
     "-c",
-    type=click.Path(exists=True, readable=True),
+    type=str,
+    callback=validate_config_path,
     help="Path to configuration file",
 )
 @click.option(
@@ -73,6 +126,7 @@ def validate_log_source(ctx, param, value):
     "-e",
     type=str,
     multiple=True,
+    callback=validate_exclude_pattern,
     help="Exclude lines matching pattern (can be used multiple times). Supports regex patterns and is case-sensitive.",
 )
 @click.option(

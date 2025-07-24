@@ -23,11 +23,22 @@ class ExclusionPattern:
         """Compile regex pattern if needed."""
         if self.is_regex:
             try:
+                # Import security module
+                from ..security.regex_security import (
+                    RegexComplexityError,
+                    RegexTimeoutError,
+                    secure_compile,
+                )
+
                 flags = 0 if self.case_sensitive else re.IGNORECASE
-                self.compiled = re.compile(self.pattern, flags)
+                self.compiled = secure_compile(self.pattern, flags)
                 self.is_valid = True
             except re.error:
                 # Invalid regex, mark as invalid
+                self.compiled = None
+                self.is_valid = False
+            except (RegexComplexityError, RegexTimeoutError):
+                # Unsafe regex, mark as invalid for security
                 self.compiled = None
                 self.is_valid = False
 
@@ -45,7 +56,16 @@ class ExclusionPattern:
             return False
 
         if self.is_regex and self.compiled:
-            return bool(self.compiled.search(text))
+            try:
+                # Import security module
+                from ..security.regex_security import RegexTimeoutError, secure_search
+
+                # Use secure search with timeout protection
+                result = secure_search(self.compiled, text)
+                return bool(result)
+            except RegexTimeoutError:
+                # If pattern times out, skip it (don't match)
+                return False
         elif not self.is_regex:
             # Plain text matching
             if self.case_sensitive:
@@ -237,10 +257,20 @@ class ExclusionManager:
 
         if is_regex:
             try:
-                re.compile(pattern)
+                # Import security module
+                from ..security.regex_security import (
+                    RegexComplexityError,
+                    RegexTimeoutError,
+                    secure_compile,
+                )
+
+                # Use secure compilation for validation
+                secure_compile(pattern)
                 return True, None
             except re.error as e:
                 return False, f"Invalid regex: {str(e)}"
+            except (RegexComplexityError, RegexTimeoutError) as e:
+                return False, f"Security issue: {str(e)}"
         else:
             return True, None
 
