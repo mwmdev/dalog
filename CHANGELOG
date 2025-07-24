@@ -2,26 +2,26 @@
 
 ## [0.2.1] - 2025-07-24
 
-### 🔒 Security Enhancements
+### Security Enhancements
 - **Path Traversal Protection**: Comprehensive validation preventing directory traversal attacks
 - **ReDoS Protection**: Regex compilation timeouts and complexity analysis to prevent ReDoS vulnerabilities  
 - **SSH Security Hardening**: Disabled weak algorithms, enhanced connection validation, secure error handling
 - **File Security**: Size limits and symlink detection for configuration and log files
 - **Thread-Safe Operations**: Security module now fully thread-safe with proper signal handling
 
-### ⚡ Performance Optimizations  
+### Performance Optimizations  
 - **Adaptive SSH Polling**: Smart polling intervals (1-2s) that adapt based on file activity
 - **SSH Connection Pooling**: Efficient connection reuse and resource management
 - **Optimized Live Reload**: Faster SSH file monitoring with exponential backoff
 - **Reduced Overhead**: Minimized SSH command execution and improved polling strategies
 
-### 🛠️ Configuration & Code Quality
+### Configuration & Code Quality
 - **Enhanced Configuration**: Improved validation, better error messages, removed obsolete options
 - **Code Organization**: Moved inline CSS to dedicated files, better separation of concerns  
 - **CI/CD Improvements**: Added environment-specific test markers, improved workflow reliability
 - **Test Coverage**: Comprehensive security test suite while maintaining CI compatibility
 
-### 🐛 Bug Fixes
+### Bug Fixes
 - **Threading Issues**: Fixed signal handler conflicts in multi-threaded environments
 - **SSH Live Reload**: Proper start/stop lifecycle for SSH file watchers
 - **Path Resolution**: Improved compatibility between local and CI test environments
