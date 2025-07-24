@@ -10,7 +10,8 @@ from textual.binding import Binding
 from textual.containers import Container, Horizontal, Vertical
 from textual.reactive import reactive
 from textual.screen import ModalScreen
-from textual.widgets import Button, Checkbox, Input, Label, ListItem, ListView, Static
+from textual.widgets import Checkbox, Input, Label, ListItem, ListView, Static
+from textual.events import Focus
 
 from ..core.exclusions import ExclusionManager
 
@@ -21,6 +22,7 @@ class ExclusionModal(ModalScreen):
     BINDINGS = [
         Binding("escape", "cancel", "Cancel"),
         Binding("ctrl+d", "delete", "Delete Selected"),
+        Binding("enter", "add", "Add Pattern"),
     ]
 
     def __init__(self, exclusion_manager: ExclusionManager, **kwargs):
@@ -36,51 +38,33 @@ class ExclusionModal(ModalScreen):
 
     def compose(self) -> ComposeResult:
         """Compose the modal layout."""
-        with Container(id="exclusion-container"):
+        with Container():
             # Header
-            yield Static("Exclusion Patterns", id="exclusion-header")
+            yield Label("Exclusion Patterns")
 
-            # Pattern input section
-            with Vertical():
-                # Input and options on same line
-                with Horizontal(classes="input-row"):
-                    yield Input(placeholder="Enter pattern", id="pattern-input")
-                    yield Checkbox("Regex", id="regex-checkbox", value=False)
-                    yield Checkbox("Case Sensitive", id="case-checkbox", value=False)
+            # Input takes full width
+            yield Input(placeholder="Enter pattern", id="pattern-input")
+            
+            # Checkbox aligned to the right below input
+            with Horizontal(classes="checkbox-row"):
+                yield Checkbox("Regex", id="regex-checkbox", value=False)
 
-                # Validation message
-                yield Static("", id="validation-message")
+            # Validation message
+            yield Static("", id="validation-message")
 
-                # Pattern list
-                yield ListView(id="pattern-list")
-
-                # Help text
-                yield Static(
-                    "Tip: Use ↑/↓ to select, Delete button or Ctrl+D to remove",
-                    classes="help-text",
-                )
-
-                # Buttons
-                with Horizontal(id="button-container"):
-                    yield Button(
-                        "Add", variant="primary", id="add-button", compact=True
-                    )
-                    yield Button(
-                        "Delete (Ctrl+D)",
-                        variant="warning",
-                        id="delete-button",
-                        compact=True,
-                    )
-                    yield Button(
-                        "Clear All", variant="error", id="clear-button", compact=True
-                    )
-                    yield Button(
-                        "Close", variant="default", id="close-button", compact=True
-                    )
+            # Pattern list (enable focus for tab navigation)
+            # Create a focusable ListView with a fixed height
+            yield ListView(id="pattern-list")
 
     def on_mount(self) -> None:
         """Called when modal is mounted."""
         self._refresh_pattern_list()
+        
+        # Ensure ListView is focusable after mount
+        pattern_list = self.query_one("#pattern-list", ListView)
+        pattern_list.can_focus = True
+        
+        # Set initial focus to the input field
         self.query_one("#pattern-input", Input).focus()
 
     def _refresh_pattern_list(self) -> None:
@@ -89,11 +73,10 @@ class ExclusionModal(ModalScreen):
         list_view.clear()
 
         patterns = self.exclusion_manager.get_patterns_list()
-        for pattern_info in patterns:
+        for i, pattern_info in enumerate(patterns):
             pattern = pattern_info["pattern"]
             count = pattern_info["excluded_count"]
             is_regex = pattern_info["is_regex"]
-            case_sensitive = pattern_info["case_sensitive"]
 
             # Build pattern display
             text = Text()
@@ -103,8 +86,6 @@ class ExclusionModal(ModalScreen):
             flags = []
             if is_regex:
                 flags.append("regex")
-            if case_sensitive:
-                flags.append("case")
             if flags:
                 text.append(f" [{', '.join(flags)}]", style="dim")
 
@@ -114,21 +95,10 @@ class ExclusionModal(ModalScreen):
 
             # Wrap the Text object in a Label widget
             list_item = ListItem(Label(text))
-            list_item.data = pattern  # Store pattern for later reference
+            list_item.data = pattern  # type: ignore  # Store pattern for later reference
+            list_item.can_focus = True  # Ensure ListItems are focusable
             list_view.append(list_item)
 
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        """Handle button presses."""
-        button_id = event.button.id
-
-        if button_id == "add-button":
-            self._add_pattern()
-        elif button_id == "delete-button":
-            self._delete_selected()
-        elif button_id == "clear-button":
-            self._clear_all()
-        elif button_id == "close-button":
-            self.dismiss(False)
 
     def on_list_view_selected(self, event: ListView.Selected) -> None:
         """Handle pattern selection."""
@@ -151,22 +121,21 @@ class ExclusionModal(ModalScreen):
 
         # Get options
         is_regex = self.query_one("#regex-checkbox", Checkbox).value
-        case_sensitive = self.query_one("#case-checkbox", Checkbox).value
 
         # Debug logging
         self.notify(
-            f"Adding: '{pattern}' | regex={is_regex} | case_sensitive={case_sensitive}",
+            f"Adding: '{pattern}' | regex={is_regex}",
             timeout=5,
         )
 
         # Validate pattern
         is_valid, error = self.exclusion_manager.validate_pattern(pattern, is_regex)
         if not is_valid:
-            self._show_validation_error(error)
+            self._show_validation_error(error or "Invalid pattern")
             return
 
-        # Add pattern
-        if self.exclusion_manager.add_pattern(pattern, is_regex, case_sensitive):
+        # Add pattern (always case sensitive)
+        if self.exclusion_manager.add_pattern(pattern, is_regex, True):
             input_widget.value = ""
             self._refresh_pattern_list()
             self._clear_validation_error()
@@ -184,12 +153,6 @@ class ExclusionModal(ModalScreen):
                 self._refresh_pattern_list()
                 self.notify(f"Removed pattern: {pattern}", timeout=2)
 
-    def _clear_all(self) -> None:
-        """Clear all patterns."""
-        if self.exclusion_manager.patterns:
-            self.exclusion_manager.clear_patterns()
-            self._refresh_pattern_list()
-            self.notify("Cleared all patterns", timeout=2)
 
     def _show_validation_error(self, message: str) -> None:
         """Show validation error message."""
@@ -208,3 +171,18 @@ class ExclusionModal(ModalScreen):
     def action_delete(self) -> None:
         """Delete selected pattern."""
         self._delete_selected()
+
+    def action_add(self) -> None:
+        """Add pattern."""
+        self._add_pattern()
+
+    def on_focus(self, event: Focus) -> None:
+        """Handle focus events."""
+        # Check if the focused widget is our pattern list
+        if event.widget.id == "pattern-list":
+            pattern_list = self.query_one("#pattern-list", ListView)
+            if pattern_list.children:
+                # Focus the first ListItem
+                first_item = pattern_list.children[0]
+                if isinstance(first_item, ListItem):
+                    first_item.focus()
