@@ -20,7 +20,7 @@ Screen {
     border: none;
     background: $surface;
     color: $text;
-    scrollbar-size: 1 1;
+    scrollbar-size: 0 1;
     scrollbar-gutter: stable;
 }
 
@@ -92,7 +92,7 @@ Toast.help-toast {
 }
 
 #log-viewer > Scrollbar.-horizontal {
-    height: 1;
+    display: none;
 }
 
 Scrollbar {
