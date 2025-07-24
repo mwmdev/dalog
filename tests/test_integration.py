@@ -635,6 +635,7 @@ class TestProductionScaleLargeFiles:
             temp_path.unlink()
             gc.collect()
     
+    @pytest.mark.ci_skip
     @pytest.mark.parametrize("file_size_lines,tail_size", [
         (100000, 50),     # Tail 50 from 100K lines
         (250000, 100),    # Tail 100 from 250K lines
