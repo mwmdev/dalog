@@ -36,8 +36,7 @@ class TestLogProcessorIntegration:
             processor = LogProcessor(temp_path)
             exclusion_manager = ExclusionManager(
                 patterns=["DEBUG"],
-                is_regex=False,
-                case_sensitive=False
+                is_regex=False
             )
             
             with processor:
@@ -207,8 +206,7 @@ class TestConfigurationIntegration:
         # Test that exclusion config can be used
         exclusion_manager = ExclusionManager(
             patterns=config.exclusions.patterns,
-            is_regex=config.exclusions.regex,
-            case_sensitive=config.exclusions.case_sensitive
+            is_regex=config.exclusions.regex
         )
         
         # Test basic functionality
@@ -818,8 +816,7 @@ class TestProductionScaleLargeFiles:
             processor = LogProcessor(temp_path)
             exclusion_manager = ExclusionManager(
                 patterns=["DEBUG", "TRACE"],  # Exclude debug/trace logs
-                is_regex=False,
-                case_sensitive=False
+                is_regex=False
             )
             config = get_default_config()
             styling_engine = StylingEngine(config.styling)

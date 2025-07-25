@@ -286,13 +286,13 @@ class TestExclusionModalIntegration:
     """Test integration with ExclusionManager."""
 
     @pytest.fixture
-    def modal_app(self):
+    def modal_app(self, mock_config):
         """Create test app with ExclusionModal and real ExclusionManager."""
         exclusion_manager = ExclusionManager()
         
         class ModalTestApp(App):
             def compose(self):
-                yield ExclusionModal(exclusion_manager=exclusion_manager)
+                yield ExclusionModal(exclusion_manager=exclusion_manager, config=mock_config)
         return ModalTestApp()
 
     async def test_exclusion_manager_integration(self, modal_app):

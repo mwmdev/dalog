@@ -103,8 +103,7 @@ class TestReDoSSecurityExclusions:
         for pattern in dangerous_patterns:
             exclusion = ExclusionPattern(
                 pattern=pattern,
-                is_regex=True,
-                case_sensitive=True
+                is_regex=True
             )
             # Pattern should be marked as invalid due to security
             assert not exclusion.is_valid
@@ -128,8 +127,7 @@ class TestReDoSSecurityExclusions:
         # Create a valid pattern that won't be blocked by complexity analysis
         pattern = ExclusionPattern(
             pattern=r"test.*content",
-            is_regex=True,
-            case_sensitive=True
+            is_regex=True
         )
         
         if pattern.is_valid:
