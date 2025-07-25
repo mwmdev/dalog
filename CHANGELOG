@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.2.2] - 2025-07-25
+
+### Fixed
+- Improve exclusion modal UX and code cleanup
+- Hide horizontal scrollbar in log viewer for better visual appearance
+- Fix focus event handling in exclusion modal
+- Security improvements: Fix SSH host key scanning alert for better security
+- CI/CD improvements: Skip performance tests in CI environment, remove emojis, add proper permissions
+
+### Added
+- Add coverage badge and update script for better development workflow
+- Add Kitty terminal configuration for development environment
+
+### Changed
+- Enhanced code organization and development tooling
+
 ## [0.2.1] - 2025-07-24
 
 ### Security Enhancements

@@ -146,6 +146,11 @@ class ExclusionManager:
                 return True
         return False
 
+    def clear_patterns(self) -> None:
+        """Clear all exclusion patterns."""
+        self._patterns.clear()
+        self._excluded_lines.clear()
+        self._excluded_count = 0
 
     def should_exclude(self, line: str) -> bool:
         """Check if a line should be excluded.

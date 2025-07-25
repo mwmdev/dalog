@@ -47,6 +47,7 @@ class DalogSecureHostKeyPolicy(MissingHostKeyPolicy):
             f"You can do this by running: ssh-keyscan {hostname} >> ~/.ssh/known_hosts"
         )
 
+
 class DalogWarningHostKeyPolicy(MissingHostKeyPolicy):
     """Custom host key policy that logs a warning and rejects unknown hosts."""
 

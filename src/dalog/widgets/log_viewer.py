@@ -251,11 +251,11 @@ class LogViewerWidget(RichLog):
         # Pattern styles take precedence over HTML styles
         try:
             # Try to use the public API first
-            if hasattr(pattern_text, 'spans'):
+            if hasattr(pattern_text, "spans"):
                 for span in pattern_text.spans:
                     if span.style:
                         text.stylize(span.style, span.start, span.end)
-            elif hasattr(pattern_text, '_spans'):
+            elif hasattr(pattern_text, "_spans"):
                 # Fallback to private API for older versions
                 for start, end, style in pattern_text._spans:
                     if style:

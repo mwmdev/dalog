@@ -176,11 +176,11 @@ class HTMLProcessor:
         # by merging them with HTML styles
         try:
             # Try to use the public API first
-            if hasattr(text, 'spans'):
+            if hasattr(text, "spans"):
                 for span in text.spans:
                     if span.style:
                         styled_text.stylize(span.style, span.start, span.end)
-            elif hasattr(text, '_spans'):
+            elif hasattr(text, "_spans"):
                 # Fallback to private API for older versions
                 for start, end, style in text._spans:
                     if style:

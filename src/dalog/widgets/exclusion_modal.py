@@ -13,14 +13,16 @@ from textual.screen import ModalScreen
 from textual.widgets import Checkbox, Input, Label, OptionList, Static
 from textual.widgets.option_list import Option
 
-from ..core.exclusions import ExclusionManager
 from ..config.models import DaLogConfig
+from ..core.exclusions import ExclusionManager
 
 
 class ExclusionModal(ModalScreen):
     """Modal screen for managing exclusion patterns."""
 
-    def __init__(self, exclusion_manager: ExclusionManager, config: DaLogConfig, **kwargs):
+    def __init__(
+        self, exclusion_manager: ExclusionManager, config: DaLogConfig, **kwargs
+    ):
         """Initialize the exclusion modal.
 
         Args:
@@ -42,7 +44,11 @@ class ExclusionModal(ModalScreen):
         """Get dynamic bindings including configurable ones."""
         bindings = list(self.BINDINGS)
         # Add the configurable delete binding
-        bindings.append(Binding(self.config.keybindings.exclusion_delete, "delete", "Delete Selected"))
+        bindings.append(
+            Binding(
+                self.config.keybindings.exclusion_delete, "delete", "Delete Selected"
+            )
+        )
         return bindings
 
     def compose(self) -> ComposeResult:
@@ -53,7 +59,7 @@ class ExclusionModal(ModalScreen):
 
             # Input takes full width
             yield Input(placeholder="Enter pattern", id="pattern-input")
-            
+
             # Checkbox aligned to the right below input
             with Horizontal(classes="checkbox-row"):
                 yield Checkbox("Regex", id="regex-checkbox", value=False)
@@ -67,7 +73,7 @@ class ExclusionModal(ModalScreen):
     def on_mount(self) -> None:
         """Called when modal is mounted."""
         self._refresh_pattern_list()
-        
+
         # Set initial focus to the input field
         self.query_one("#pattern-input", Input).focus()
 
@@ -97,13 +103,14 @@ class ExclusionModal(ModalScreen):
             # Add option with pattern as ID for easy retrieval
             option_list.add_option(Option(text, id=pattern))
 
-
     def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
         """Handle pattern selection for deletion."""
         if event.option.id:
             self.selected_pattern = event.option.id
-    
-    def on_option_list_option_highlighted(self, event: OptionList.OptionHighlighted) -> None:
+
+    def on_option_list_option_highlighted(
+        self, event: OptionList.OptionHighlighted
+    ) -> None:
         """Update selected pattern when highlighted changes."""
         if event.option and event.option.id:
             self.selected_pattern = event.option.id
@@ -154,7 +161,6 @@ class ExclusionModal(ModalScreen):
                 self.notify(f"Removed pattern: {self.selected_pattern}", timeout=2)
                 self.selected_pattern = None
 
-
     def _show_validation_error(self, message: str) -> None:
         """Show validation error message."""
         validation_widget = self.query_one("#validation-message", Static)
@@ -193,4 +199,3 @@ class ExclusionModal(ModalScreen):
             elif event.key == self.config.keybindings.exclusion_delete:
                 self._delete_selected()
                 event.prevent_default()
-

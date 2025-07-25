@@ -106,8 +106,8 @@ class HelpScreen(ModalScreen):
             exclusions_table.add_row("Enter", "Add pattern")
             exclusions_table.add_row("Tab", "Navigate between fields")
             exclusions_table.add_row(
-                f"{kb.exclusion_list_up}/{kb.exclusion_list_down}", 
-                "Navigate pattern list"
+                f"{kb.exclusion_list_up}/{kb.exclusion_list_down}",
+                "Navigate pattern list",
             )
             exclusions_table.add_row(kb.exclusion_delete, "Delete selected pattern")
             exclusions_table.add_row("Checkbox", "Toggle regex mode")
@@ -519,6 +519,7 @@ def create_dalog_app(config_path: Optional[str] = None):
                                 if (
                                     hasattr(reader, "_ssh_client")
                                     and reader._ssh_client
+                                    and hasattr(reader, "remote_path")
                                 ):
                                     if self.ssh_file_watcher.add_ssh_file_with_connection(
                                         file_source_str,
@@ -627,7 +628,7 @@ def create_dalog_app(config_path: Optional[str] = None):
                 self.search_input.focus()
 
                 # Pre-fill with initial search if available
-                if self.initial_search and not self.search_input.value:
+                if self.initial_search and self.search_input and not self.search_input.value:
                     self.search_input.value = self.initial_search
 
         async def action_reload_logs(self) -> None:
@@ -651,6 +652,7 @@ def create_dalog_app(config_path: Optional[str] = None):
                         self.log_reader
                         and hasattr(self.log_reader, "_ssh_client")
                         and self.log_reader._ssh_client
+                        and hasattr(self.log_reader, "remote_path")
                     ):
                         if self.ssh_file_watcher.add_ssh_file_with_connection(
                             self.current_file,
@@ -669,7 +671,7 @@ def create_dalog_app(config_path: Optional[str] = None):
                             "No SSH connection available for live reload", timeout=2
                         )
                 else:
-                    self.file_watcher.add_file(self.log_file)
+                    self.file_watcher.add_file(Path(self.log_file))
                     self.notify("Live reload enabled", timeout=2)
             else:
                 # Stop both file watchers
@@ -679,6 +681,9 @@ def create_dalog_app(config_path: Optional[str] = None):
 
         async def action_toggle_wrap(self) -> None:
             """Toggle text wrapping."""
+            if not self.log_viewer:
+                return
+                
             # Toggle wrap property on the log viewer
             self.log_viewer.wrap = not self.log_viewer.wrap
 
@@ -694,9 +699,13 @@ def create_dalog_app(config_path: Optional[str] = None):
 
         async def action_show_exclusions(self) -> None:
             """Show exclusion management modal."""
+            if not self.log_viewer:
+                return
 
             def handle_exclusion_modal(result: bool) -> None:
                 """Handle exclusion modal result."""
+                if not self.log_viewer:
+                    return
                 # Always refresh the log viewer when modal closes
                 # because exclusions may have been added/removed
                 self.log_viewer.refresh_exclusions()
@@ -714,6 +723,8 @@ def create_dalog_app(config_path: Optional[str] = None):
 
         async def action_scroll_down(self) -> None:
             """Scroll down one line."""
+            if not self.log_viewer:
+                return
             if self.log_viewer.visual_mode:
                 # In visual mode, move cursor
                 self.log_viewer.move_visual_cursor(1)
@@ -722,6 +733,8 @@ def create_dalog_app(config_path: Optional[str] = None):
 
         async def action_scroll_up(self) -> None:
             """Scroll up one line."""
+            if not self.log_viewer:
+                return
             if self.log_viewer.visual_mode:
                 # In visual mode, move cursor
                 self.log_viewer.move_visual_cursor(-1)
@@ -730,34 +743,48 @@ def create_dalog_app(config_path: Optional[str] = None):
 
         async def action_scroll_left(self) -> None:
             """Scroll left."""
+            if not self.log_viewer:
+                return
             self.log_viewer.scroll_left()
 
         async def action_scroll_right(self) -> None:
             """Scroll right."""
+            if not self.log_viewer:
+                return
             self.log_viewer.scroll_right()
 
         async def action_scroll_home(self) -> None:
             """Scroll to top."""
+            if not self.log_viewer:
+                return
             self.log_viewer.scroll_home()
 
         async def action_scroll_end(self) -> None:
             """Scroll to bottom."""
+            if not self.log_viewer:
+                return
             self.log_viewer.scroll_end()
 
         # Page scrolling
 
         async def action_scroll_page_up(self) -> None:
             """Scroll up one page."""
+            if not self.log_viewer:
+                return
             self.log_viewer.scroll_page_up()
 
         async def action_scroll_page_down(self) -> None:
             """Scroll down one page."""
+            if not self.log_viewer:
+                return
             self.log_viewer.scroll_page_down()
 
         # Visual mode actions
 
         async def action_toggle_visual_mode(self) -> None:
             """Toggle visual line mode."""
+            if not self.log_viewer:
+                return
             if self.log_viewer.visual_mode:
                 self.log_viewer.exit_visual_mode()
                 self.notify("Exited visual mode", timeout=2)
@@ -829,6 +856,8 @@ def create_dalog_app(config_path: Optional[str] = None):
 
         async def action_start_selection(self) -> None:
             """Start selection in visual mode."""
+            if not self.log_viewer:
+                return
             if not self.log_viewer.visual_mode:
                 return
 
@@ -838,6 +867,8 @@ def create_dalog_app(config_path: Optional[str] = None):
 
         async def action_yank_lines(self) -> None:
             """Copy selected lines or current line to clipboard (yank in vi terms)."""
+            if not self.log_viewer:
+                return
             if not self.log_viewer.visual_mode:
                 return
 
@@ -861,7 +892,8 @@ def create_dalog_app(config_path: Optional[str] = None):
                 self.current_search = event.value
 
                 # Update log viewer with search term
-                self.log_viewer.update_search(event.value)
+                if self.log_viewer:
+                    self.log_viewer.update_search(event.value)
 
         def on_input_submitted(self, event: Input.Submitted) -> None:
             """Handle search input submission."""
@@ -880,7 +912,7 @@ def create_dalog_app(config_path: Optional[str] = None):
                 return
 
             if event.key == "escape":
-                if self.log_viewer.visual_mode:
+                if self.log_viewer and self.log_viewer.visual_mode:
                     # Exit visual mode
                     self.log_viewer.exit_visual_mode()
                     self.notify("Exited visual mode", timeout=2)

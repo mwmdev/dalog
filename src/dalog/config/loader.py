@@ -241,18 +241,25 @@ class ConfigLoader:
                 if len(actions) > 1:
                     # Build list of keys that can be shared across different UI contexts
                     allowed_shared_keys = ["escape", "ctrl+c"]  # Always allowed
-                    
+
                     # Add configured navigation keys that are used in both main app and exclusion modal
                     kb = config.keybindings
-                    allowed_shared_keys.extend([
-                        kb.scroll_up, kb.scroll_down, kb.scroll_left, kb.scroll_right,  # Main navigation
-                        kb.exclusion_list_up, kb.exclusion_list_down, kb.exclusion_delete,  # Exclusion modal
-                        kb.scroll_page_down,  # May conflict with exclusion_delete
-                    ])
-                    
+                    allowed_shared_keys.extend(
+                        [
+                            kb.scroll_up,
+                            kb.scroll_down,
+                            kb.scroll_left,
+                            kb.scroll_right,  # Main navigation
+                            kb.exclusion_list_up,
+                            kb.exclusion_list_down,
+                            kb.exclusion_delete,  # Exclusion modal
+                            kb.scroll_page_down,  # May conflict with exclusion_delete
+                        ]
+                    )
+
                     # Remove duplicates
                     allowed_shared_keys = list(set(allowed_shared_keys))
-                    
+
                     if key not in allowed_shared_keys:
                         actions_str = "', '".join(actions)
                         errors.append(

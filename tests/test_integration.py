@@ -480,8 +480,7 @@ class TestStringBasedComponents:
         """Test ExclusionManager with string data (no file I/O)."""
         exclusion_manager = ExclusionManager(
             patterns=patterns,
-            is_regex=True,
-            case_sensitive=False
+            is_regex=True
         )
         
         filtered_lines = exclusion_manager.filter_lines(test_lines)
